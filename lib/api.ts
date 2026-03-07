@@ -14,9 +14,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const isLoginEndpoint = err.config?.url?.includes('/auth/login');
+    if (err.response?.status === 401 && !isLoginEndpoint) {
       Cookies.remove('token');
-      if (typeof window !== 'undefined') window.location.href = '/auth/login';
+      if (typeof window !== 'undefined') {
+        const isAdminPath = window.location.pathname.startsWith('/admin');
+        window.location.href = isAdminPath ? '/admin-login' : '/auth/login';
+      }
     }
     return Promise.reject(err);
   }
@@ -39,6 +43,10 @@ export const productsApi = {
   updateTranslation: (id: string, nameHe: string, descriptionHe: string) =>
     api.put(`/products/admin/${id}/translation`, { nameHe, descriptionHe }),
   getAll: (params?: any) => api.get('/products/admin/all', { params }),
+  getByIdAdmin: (id: string) => api.get(`/products/admin/${id}`),
+  adminUpdate: (id: string, data: any) => api.put(`/products/admin/${id}`, data),
+  adminDelete: (id: string) => api.delete(`/products/admin/${id}`),
+  toggleHide: (id: string) => api.patch(`/products/admin/${id}/toggle-hide`),
 };
 
 // ─── Categories ─────────────────────────────────────────

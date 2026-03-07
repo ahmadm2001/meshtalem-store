@@ -24,10 +24,14 @@ export default function LoginPage() {
         toast.error('ספקים נכנסים דרך פורטל הספקים');
         return;
       }
+      if (user.role === 'admin') {
+        toast.error('מנהלים נכנסים דרך פאנל הניהול');
+        router.push('/admin-login');
+        return;
+      }
       setAuth(user, access_token);
       toast.success(`ברוך הבא, ${user.fullName}!`);
-      if (user.role === 'admin') router.push('/admin/dashboard');
-      else router.push('/products');
+      router.push('/products');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'שגיאה בכניסה');
     } finally {
