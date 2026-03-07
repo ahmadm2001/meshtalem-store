@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, total, clearCart } = useCartStore();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [form, setForm] = useState({
@@ -32,6 +32,10 @@ export default function CheckoutPage() {
     if (!isAuthenticated) {
       toast.error('יש להתחבר לפני ביצוע הזמנה');
       router.push('/auth/login');
+      return;
+    }
+    if (user && (user.role === 'admin' || user.role === 'vendor')) {
+      toast.error('חשבון זה אינו יכול לבצע הזמנות. השתמש בחשבון לקוח.');
       return;
     }
     if (items.length === 0) {

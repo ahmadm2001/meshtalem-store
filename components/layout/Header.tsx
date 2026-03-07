@@ -1,15 +1,18 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShoppingCart, User, LogOut, Package, Search } from 'lucide-react';
+import { ShoppingCart, LogOut, Package, Search } from 'lucide-react';
 import { useAuthStore, useCartStore } from '@/store';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Header() {
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { isAuthenticated, logout } = useAuthStore();
   const { count } = useCartStore();
   const [search, setSearch] = useState('');
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => { setMounted(true); }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +49,7 @@ export default function Header() {
             {/* Cart */}
             <Link href="/cart" className="relative p-2 text-gray-600 hover:text-primary-600 transition-colors">
               <ShoppingCart className="w-6 h-6" />
-              {count() > 0 && (
+              {mounted && count() > 0 && (
                 <span className="absolute -top-1 -right-1 bg-primary-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
                   {count()}
                 </span>
@@ -54,7 +57,7 @@ export default function Header() {
             </Link>
 
             {/* User */}
-            {isAuthenticated ? (
+            {mounted && (isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <Link href="/orders" className="flex items-center gap-1 text-sm text-gray-600 hover:text-primary-600 transition-colors">
                   <Package className="w-4 h-4" />
@@ -71,7 +74,7 @@ export default function Header() {
               <Link href="/auth/login" className="btn-primary text-sm py-2 px-4">
                 כניסה
               </Link>
-            )}
+            ))}
           </div>
         </div>
       </div>
