@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import Cookies from 'js-cookie';
 
 interface User {
@@ -15,12 +15,15 @@ interface CartItem {
   price: number;
   quantity: number;
   image?: string;
+  selectedColor?: string | null;
 }
 
 interface AuthStore {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
   setAuth: (user: User, token: string) => void;
   logout: () => void;
 }
@@ -41,6 +44,8 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       token: null,
       isAuthenticated: false,
+      _hasHydrated: false,
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
       setAuth: (user, token) => {
         Cookies.set('token', token, { expires: 7 });
         set({ user, token, isAuthenticated: true });
@@ -51,7 +56,13 @@ export const useAuthStore = create<AuthStore>()(
         window.location.href = '/auth/login';
       },
     }),
-    { name: 'meshtalem-auth' }
+    {
+      name: 'meshtalem-auth',
+      storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
   )
 );
 
@@ -60,11 +71,14 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
       addItem: (item) => {
-        const existing = get().items.find((i) => i.productId === item.productId);
+        // For items with colors, treat same product + same color as same cart entry
+        const existing = get().items.find(
+          (i) => i.productId === item.productId && i.selectedColor === item.selectedColor
+        );
         if (existing) {
           set({
             items: get().items.map((i) =>
-              i.productId === item.productId
+              i.productId === item.productId && i.selectedColor === item.selectedColor
                 ? { ...i, quantity: i.quantity + item.quantity }
                 : i
             ),

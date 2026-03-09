@@ -6,6 +6,7 @@ import { useCartStore } from '@/store';
 import StoreLayout from '@/components/layout/StoreLayout';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import { getColorByKey } from '@/lib/colors';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
@@ -41,7 +42,11 @@ export default function CheckoutPage() {
     setLoading(true);
     try {
       const res = await axios.post(`${API}/orders/guest`, {
-        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        items: items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          selectedColor: i.selectedColor || undefined,
+        })),
         guestName: form.guestName,
         guestPhone: form.guestPhone,
         guestEmail: form.guestEmail || undefined,
@@ -206,14 +211,32 @@ export default function CheckoutPage() {
           <div className="bg-white rounded-2xl border border-gray-200 p-6 h-fit">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">סיכום הזמנה</h2>
             <div className="space-y-3 mb-4">
-              {items.map((item) => (
-                <div key={item.productId} className="flex justify-between text-sm">
-                  <span className="text-gray-700 truncate max-w-[160px]">
-                    {item.name} <span className="text-gray-400">×{item.quantity}</span>
-                  </span>
-                  <span className="font-medium text-gray-900">₪{(item.price * item.quantity).toFixed(0)}</span>
-                </div>
-              ))}
+              {items.map((item, idx) => {
+                const colorInfo = item.selectedColor ? getColorByKey(item.selectedColor) : null;
+                return (
+                  <div key={`${item.productId}-${item.selectedColor || idx}`} className="flex justify-between text-sm">
+                    <div className="flex items-center gap-2 truncate max-w-[160px]">
+                      {colorInfo && (
+                        <span
+                          className="inline-block rounded shrink-0"
+                          style={{
+                            width: 14,
+                            height: 14,
+                            backgroundColor: colorInfo.hex,
+                            border: colorInfo.hex === '#FFFFFF' || colorInfo.hex === '#E5D3B3'
+                              ? '1px solid #d1d5db'
+                              : '1px solid rgba(0,0,0,0.1)',
+                          }}
+                        />
+                      )}
+                      <span className="text-gray-700 truncate">
+                        {item.name} <span className="text-gray-400">×{item.quantity}</span>
+                      </span>
+                    </div>
+                    <span className="font-medium text-gray-900 shrink-0">₪{(item.price * item.quantity).toFixed(0)}</span>
+                  </div>
+                );
+              })}
             </div>
             <div className="border-t border-gray-100 pt-3 space-y-2 text-sm">
               <div className="flex justify-between text-gray-600">
