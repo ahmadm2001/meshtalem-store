@@ -44,6 +44,7 @@ export const productsApi = {
     api.put(`/products/admin/${id}/translation`, { nameHe, descriptionHe }),
   getAll: (params?: any) => api.get('/products/admin/all', { params }),
   getByIdAdmin: (id: string) => api.get(`/products/admin/${id}`),
+  adminCreate: (data: any) => api.post('/products/admin', data),
   adminUpdate: (id: string, data: any) => api.put(`/products/admin/${id}`, data),
   adminDelete: (id: string) => api.delete(`/products/admin/${id}`),
   toggleHide: (id: string) => api.patch(`/products/admin/${id}/toggle-hide`),
