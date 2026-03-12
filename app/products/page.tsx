@@ -45,10 +45,12 @@ function ProductsContent() {
   }, [selectedCat, selectedSub, search]);
 
   const handleAddToCart = (product: any) => {
+    const price = Number(product.customerPrice || product.price || 0);
     addItem({
       productId: product.id,
-      name: product.nameHe,
-      price: Number(product.price),
+      name: product.nameHe || product.nameAr,
+      price,
+      basePrice: price,
       quantity: 1,
       image: product.images?.[0],
     });

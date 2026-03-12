@@ -9,21 +9,44 @@ interface User {
   role: 'customer' | 'admin';
 }
 
+/**
+ * Legacy single-value option snapshot (kept for backward compatibility with
+ * existing cart items stored in localStorage).
+ */
 export interface SelectedOption {
   groupName: string;
   selectedValue: string;
   priceModifier: number;
 }
 
+/**
+ * Full option snapshot produced by the Q DOOR configurator engine.
+ * Stores both stable IDs and human-readable labels.
+ * Used by the checkout page when submitting orders to the backend.
+ */
+export interface SelectedOptionSnapshot {
+  groupId: string;
+  groupName: string;
+  selectedValueIds: string[];
+  selectedValueLabels: string[];
+  priceModifier: number;
+}
+
 export interface CartItem {
   productId: string;
   name: string;
-  price: number; // base price + options extra cost
-  basePrice: number; // original base price
+  /** Total price = basePrice + optionsExtraCost */
+  price: number;
+  /** Original base price before any option modifiers */
+  basePrice: number;
   quantity: number;
   image?: string;
   selectedColor?: string | null;
+  /** Legacy flat option snapshot (single-value per group). */
   selectedOptions?: SelectedOption[];
+  /** Full configurator snapshot with IDs. Present for new-style configurator items. */
+  selectedOptionSnapshots?: SelectedOptionSnapshot[];
+  /** Sum of all priceModifiers from selected options */
   optionsExtraCost?: number;
 }
 

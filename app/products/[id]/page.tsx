@@ -1,9 +1,12 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ShoppingCart, ArrowRight, Minus, Plus, Package, Shield, Truck, Clock } from 'lucide-react';
+import { Shield, Truck, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { productsApi } from '@/lib/api';
-import { useCartStore, SelectedOption } from '@/store';
+import { useCartStore } from '@/store';
+import { useConfiguratorStore } from '@/store/configurator';
+import { ConfiguratorPanel } from '@/components/configurator/ConfiguratorPanel';
 import StoreLayout from '@/components/layout/StoreLayout';
 import toast from 'react-hot-toast';
 import { getDeliveryLabelHe, getEstimatedArrivalHe } from '@/lib/colors';
@@ -21,9 +24,6 @@ const WARRANTY_LABELS: Record<string, string> = {
   '5_years': 'חמש שנים',
 };
 
-interface OptionValue { label: string; priceModifier: number; }
-interface OptionGroup { name: string; values: OptionValue[]; }
-
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -31,129 +31,183 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
-  // selectedOptions: map from group name -> selected value label
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-  const { addItem } = useCartStore();
+  const [addingToCart, setAddingToCart] = useState(false);
 
+  const { addItem } = useCartStore();
+  const configurator = useConfiguratorStore();
+
+  // ── Load product ──────────────────────────────────────────────────────────
   useEffect(() => {
+    setLoading(true);
     productsApi.getById(id)
-      .then((r) => setProduct(r.data))
+      .then((r) => {
+        const p = r.data;
+        setProduct(p);
+
+        const basePrice = Number(p.customerPrice || p.price || 0);
+        const defaultImage = Array.isArray(p.images) && p.images.length > 0
+          ? p.images[0]
+          : '';
+
+        configurator.init({
+          productId: p.id,
+          productName: p.nameHe || p.nameAr || '',
+          basePrice,
+          defaultImage,
+          rawOptions: p.productOptions ?? [],
+        });
+      })
       .catch(() => router.push('/products'))
       .finally(() => setLoading(false));
+
+    return () => configurator.reset();
   }, [id]);
 
-  useEffect(() => {
-    setSelectedOptions({});
-  }, [id]);
+  // ── Derived values ────────────────────────────────────────────────────────
+  const images: string[] = Array.isArray(product?.images)
+    ? product.images.filter(Boolean)
+    : [];
 
-  const productOptions: OptionGroup[] = product?.productOptions || [];
-  const hasOptions = productOptions.length > 0;
+  // Use configurator imageOverride if set, otherwise the active thumbnail
+  const overrideImage = configurator.getPreviewImage();
+  const previewImage = overrideImage || images[activeImg] || '';
 
-  // Calculate extra cost from selected options
-  const optionsExtraCost = productOptions.reduce((total, group) => {
-    const selectedValueLabel = selectedOptions[group.name];
-    if (!selectedValueLabel) return total;
-    const val = group.values.find(v => v.label === selectedValueLabel);
-    return total + (val?.priceModifier || 0);
-  }, 0);
+  const estimatedTotal = configurator.getEstimatedTotal();
+  const extraCost = configurator.getOptionsExtraCost();
+  const basePrice = configurator.basePrice;
+  const hasOptions = (product?.productOptions ?? []).length > 0;
 
-  const basePrice = Number(product?.customerPrice || product?.price || 0);
-  const totalPrice = basePrice + optionsExtraCost;
-
-  const handleSelectOption = (groupName: string, valueLabel: string) => {
-    setSelectedOptions(prev => ({ ...prev, [groupName]: valueLabel }));
-  };
-
-  const handleAdd = () => {
-    // Validate all option groups have a selection
-    if (hasOptions) {
-      for (const group of productOptions) {
-        if (!selectedOptions[group.name]) {
-          toast.error(`יש לבחור ${group.name} לפני הוספה לעגלה`);
-          return;
-        }
-      }
+  // ── Add to cart ───────────────────────────────────────────────────────────
+  const handleAddToCart = () => {
+    if (hasOptions && !configurator.isConfigurationComplete()) {
+      toast.error('יש להשלים את כל הבחירות הנדרשות');
+      return;
     }
 
-    // Build selectedOptions array for snapshot
-    const optionsSnapshot: SelectedOption[] = productOptions.map(group => {
-      const selectedValueLabel = selectedOptions[group.name] || '';
-      const val = group.values.find(v => v.label === selectedValueLabel);
-      return {
-        groupName: group.name,
-        selectedValue: selectedValueLabel,
-        priceModifier: val?.priceModifier || 0,
-      };
-    });
-
-    addItem({
-      productId: product.id,
-      name: product.nameHe || product.nameAr,
-      price: totalPrice,
-      basePrice,
-      quantity: qty,
-      image: product.images?.[0],
-      selectedOptions: optionsSnapshot.length > 0 ? optionsSnapshot : undefined,
-      optionsExtraCost: optionsExtraCost > 0 ? optionsExtraCost : undefined,
-    });
-
-    toast.success(`${qty} יחידות נוספו לעגלה!`);
+    setAddingToCart(true);
+    try {
+      const snapshot = configurator.buildSnapshot();
+      addItem({
+        productId: product.id,
+        name: product.nameHe || product.nameAr,
+        price: estimatedTotal,
+        basePrice,
+        quantity: qty,
+        image: images[0],
+        selectedOptions: snapshot.length > 0
+          ? snapshot.map((s) => ({
+              groupName: s.groupName,
+              selectedValue: s.selectedValueLabels.join(', '),
+              priceModifier: s.priceModifier,
+            }))
+          : undefined,
+        optionsExtraCost: extraCost > 0 ? extraCost : undefined,
+      });
+      toast.success(`${qty} יחידות נוספו לעגלה!`);
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
-  if (loading) return (
-    <StoreLayout>
-      <div className="max-w-5xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-pulse">
-          <div className="bg-gray-200 rounded-xl h-80" />
-          <div className="space-y-4">
-            <div className="h-6 bg-gray-200 rounded w-3/4" />
-            <div className="h-8 bg-gray-200 rounded w-1/3" />
-            <div className="h-20 bg-gray-200 rounded" />
+  // ── Loading skeleton ──────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <StoreLayout>
+        <div className="max-w-6xl mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-pulse">
+            <div className="bg-gray-200 rounded-2xl h-[480px]" />
+            <div className="space-y-4">
+              <div className="h-6 bg-gray-200 rounded w-3/4" />
+              <div className="h-8 bg-gray-200 rounded w-1/3" />
+              <div className="h-20 bg-gray-200 rounded" />
+              <div className="h-12 bg-gray-200 rounded" />
+              <div className="h-12 bg-gray-200 rounded" />
+            </div>
           </div>
         </div>
-      </div>
-    </StoreLayout>
-  );
+      </StoreLayout>
+    );
+  }
 
   if (!product) return null;
 
-  const images: string[] = Array.isArray(product.images) ? product.images.filter(Boolean) : [];
   const deliveryLabel = product.deliveryTime ? getDeliveryLabelHe(product.deliveryTime) : null;
   const estimatedArrival = product.deliveryTime ? getEstimatedArrivalHe(product.deliveryTime) : null;
+  const warrantyLabel = WARRANTY_LABELS[product.warranty] ?? null;
+  const showWarranty = product.warranty && product.warranty !== 'none' && warrantyLabel;
 
   return (
     <StoreLayout>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8" dir="rtl">
-        {/* Breadcrumb */}
-        <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary-600 mb-6 transition-colors">
-          <ArrowRight className="w-4 h-4 rotate-180" />
-          חזרה לחנות
-        </button>
+      <div className="max-w-6xl mx-auto px-4 py-8" dir="rtl">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Images */}
-          <div>
-            <div className="h-80 bg-gray-100 rounded-xl overflow-hidden mb-3">
-              {images[activeImg] ? (
+        {/* ── Breadcrumb ── */}
+        <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+          <button
+            onClick={() => router.push('/products')}
+            className="hover:text-gray-800 transition-colors"
+          >
+            מוצרים
+          </button>
+          <ChevronLeft className="w-4 h-4" />
+          <span className="text-gray-800 font-medium">
+            {product.nameHe || product.nameAr}
+          </span>
+        </nav>
+
+        {/* ── Main split layout ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+
+          {/* ── LEFT: Sticky image panel ── */}
+          <div className="lg:sticky lg:top-24">
+            {/* Main preview image */}
+            <div className="relative bg-gray-50 rounded-2xl overflow-hidden aspect-[3/4] mb-3 border border-gray-100">
+              {previewImage ? (
                 <img
-                  src={images[activeImg]}
+                  src={previewImage}
                   alt={product.nameHe || product.nameAr}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain transition-all duration-300"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-300">
-                  <Package className="w-16 h-16" />
+                  <svg viewBox="0 0 80 120" className="w-20 opacity-30" fill="currentColor">
+                    <rect x="10" y="5" width="60" height="110" rx="2" />
+                    <circle cx="62" cy="62" r="4" fill="white" />
+                  </svg>
                 </div>
               )}
+
+              {/* Thumbnail navigation arrows */}
+              {images.length > 1 && !overrideImage && (
+                <>
+                  <button
+                    onClick={() => setActiveImg((i) => Math.max(0, i - 1))}
+                    disabled={activeImg === 0}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full flex items-center justify-center shadow hover:bg-white disabled:opacity-30 transition-all"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setActiveImg((i) => Math.min(images.length - 1, i + 1))}
+                    disabled={activeImg === images.length - 1}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/80 rounded-full flex items-center justify-center shadow hover:bg-white disabled:opacity-30 transition-all"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                </>
+              )}
             </div>
+
+            {/* Thumbnail strip */}
             {images.length > 1 && (
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 overflow-x-auto pb-1">
                 {images.map((img: string, i: number) => (
                   <button
                     key={i}
                     onClick={() => setActiveImg(i)}
-                    className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                      activeImg === i ? 'border-primary-500' : 'border-gray-200'
+                    className={`w-16 h-16 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${
+                      activeImg === i && !overrideImage
+                        ? 'border-amber-500'
+                        : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <img src={img} alt="" className="w-full h-full object-cover" />
@@ -161,166 +215,154 @@ export default function ProductPage() {
                 ))}
               </div>
             )}
+
+            {/* Illustration disclaimer */}
+            {hasOptions && (
+              <p className="text-xs text-gray-400 text-center mt-3 leading-relaxed">
+                * התמונה להמחשה בלבד. המחיר הסופי ייקבע לאחר מדידה בשטח.
+              </p>
+            )}
           </div>
 
-          {/* Details */}
+          {/* ── RIGHT: Product info + Configurator ── */}
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">{product.nameHe || product.nameAr}</h1>
+            {/* Product name */}
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">
+              {product.nameHe || product.nameAr}
+            </h1>
+
+            {/* Category */}
+            {product.category?.name && (
+              <p className="text-sm text-gray-500 mb-3">{product.category.name}</p>
+            )}
 
             {/* Price display */}
-            <div className="mb-4">
-              {optionsExtraCost > 0 ? (
+            <div className="mb-5">
+              {hasOptions ? (
                 <div>
-                  <p className="text-sm text-gray-500 line-through">מחיר בסיס: ₪{basePrice.toFixed(2)}</p>
-                  <p className="text-3xl font-bold text-primary-600">₪{totalPrice.toFixed(2)}</p>
-                  <p className="text-xs text-green-700 bg-green-50 inline-block px-2 py-0.5 rounded mt-1">
-                    כולל תוספת אפשרויות: +₪{optionsExtraCost.toFixed(2)}
+                  <p className="text-xs text-gray-500 mb-0.5 uppercase tracking-wide">מחיר משוער</p>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-3xl font-bold text-amber-600">
+                      ₪{estimatedTotal.toLocaleString()}
+                    </span>
+                    {extraCost > 0 && (
+                      <span className="text-sm text-gray-400">
+                        (בסיס ₪{basePrice.toLocaleString()} + תוספות ₪{extraCost.toLocaleString()})
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    המחיר הסופי ייקבע לאחר מדידה מקצועית בשטח
                   </p>
                 </div>
               ) : (
-                <p className="text-3xl font-bold text-primary-600">₪{basePrice.toFixed(2)}</p>
+                <span className="text-3xl font-bold text-amber-600">
+                  ₪{basePrice.toLocaleString()}
+                </span>
               )}
             </div>
 
+            {/* Description */}
             {(product.descriptionHe || product.descriptionAr) && (
-              <p className="text-gray-600 text-sm leading-relaxed mb-4">{product.descriptionHe || product.descriptionAr}</p>
+              <p className="text-sm text-gray-600 leading-relaxed mb-5">
+                {product.descriptionHe || product.descriptionAr}
+              </p>
             )}
 
-            {/* Stock */}
-            <div className="flex items-center gap-2 text-sm mb-3">
-              <Package className="w-4 h-4" />
-              {product.stock > 0 ? (
-                <span className="text-green-600 font-medium">במלאי</span>
-              ) : (
-                <span className="text-red-500 font-medium">אזל מהמלאי</span>
+            {/* ── Configurator or simple add-to-cart ── */}
+            {hasOptions ? (
+              <div className="mb-6">
+                <ConfiguratorPanel
+                  onAddToCart={handleAddToCart}
+                  isLoading={addingToCart}
+                />
+              </div>
+            ) : (
+              <div className="mb-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <span className="text-sm font-medium text-gray-700">כמות:</span>
+                  <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setQty(Math.max(1, qty - 1))}
+                      className="px-3 py-2 hover:bg-gray-50 transition-colors text-lg font-bold text-gray-600"
+                    >
+                      −
+                    </button>
+                    <span className="px-4 py-2 font-medium text-gray-900 min-w-[3rem] text-center">
+                      {qty}
+                    </span>
+                    <button
+                      onClick={() => setQty(qty + 1)}
+                      className="px-3 py-2 hover:bg-gray-50 transition-colors text-lg font-bold text-gray-600"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={handleAddToCart}
+                  disabled={addingToCart}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 px-6 rounded-xl text-base transition-all disabled:opacity-60"
+                >
+                  הוסף לעגלה
+                </button>
+              </div>
+            )}
+
+            {/* ── Product meta ── */}
+            <div className="space-y-2 border-t border-gray-100 pt-4">
+              {deliveryLabel && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Truck className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>זמן אספקה: {deliveryLabel}</span>
+                </div>
+              )}
+              {estimatedArrival && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>הגעה משוערת: {estimatedArrival}</span>
+                </div>
+              )}
+              {showWarranty && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Shield className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>אחריות: {warrantyLabel}</span>
+                </div>
               )}
             </div>
-
-            {/* Warranty - only show if warranty is set and not 'none' */}
-            {product.warranty && product.warranty !== 'none' && WARRANTY_LABELS[product.warranty] && (
-              <div className="flex items-center gap-2 text-sm mb-4 text-blue-600">
-                <Shield className="w-4 h-4" />
-                <span>אחריות: {WARRANTY_LABELS[product.warranty]}</span>
-              </div>
-            )}
-
-            {/* Delivery Time */}
-            {deliveryLabel && (
-              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-4 space-y-1">
-                <div className="flex items-center gap-2 text-sm">
-                  <Truck className="w-4 h-4 text-blue-500 shrink-0" />
-                  <span className="text-gray-700">זמן אספקה:</span>
-                  <span className="font-semibold text-blue-700">{deliveryLabel}</span>
-                </div>
-                {estimatedArrival && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span className="text-gray-500">הגעה משוערת:</span>
-                    <span className="font-medium text-gray-700">{estimatedArrival}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Product Options */}
-            {hasOptions && (
-              <div className="mb-5 space-y-4">
-                {productOptions.map((group) => (
-                  <div key={group.name}>
-                    <p className="text-sm font-semibold text-gray-800 mb-2">
-                      {`בחר ${group.name}`}
-                      {!selectedOptions[group.name] && (
-                        <span className="text-red-500 mr-1">*</span>
-                      )}
-                    </p>
-                    <div className="space-y-1.5">
-                      {group.values.map((val) => {
-                        const isSelected = selectedOptions[group.name] === val.label;
-                        return (
-                          <label
-                            key={val.label}
-                            className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                              isSelected
-                                ? 'border-primary-500 bg-primary-50'
-                                : 'border-gray-200 hover:border-gray-300 bg-white'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name={`option-${group.name}`}
-                              value={val.label}
-                              checked={isSelected}
-                              onChange={() => handleSelectOption(group.name, val.label)}
-                              className="accent-primary-600"
-                            />
-                            <span className={`text-sm font-medium flex-1 ${isSelected ? 'text-primary-700' : 'text-gray-700'}`}>
-                              {val.label}
-                            </span>
-                            {val.priceModifier > 0 && (
-                              <span className={`text-sm font-semibold ${isSelected ? 'text-primary-600' : 'text-gray-500'}`}>
-                                +₪{val.priceModifier}
-                              </span>
-                            )}
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {!selectedOptions[group.name] && (
-                      <p className="text-xs text-red-500 mt-1">יש לבחור {group.name}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Quantity */}
-            <div className="flex items-center gap-4 mb-6">
-              <span className="text-sm font-medium text-gray-700">כמות:</span>
-              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setQty(Math.max(1, qty - 1))}
-                  className="px-3 py-2 hover:bg-gray-50 transition-colors"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="px-4 py-2 font-medium text-gray-900 min-w-[3rem] text-center">{qty}</span>
-                <button
-                  onClick={() => setQty(Math.min(product.stock, qty + 1))}
-                  className="px-3 py-2 hover:bg-gray-50 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Total price summary */}
-            {hasOptions && optionsExtraCost > 0 && (
-              <div className="bg-gray-50 rounded-xl p-3 mb-4 text-sm">
-                <div className="flex justify-between text-gray-600 mb-1">
-                  <span>מחיר בסיס:</span>
-                  <span>₪{basePrice.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600 mb-1">
-                  <span>תוספת אפשרויות:</span>
-                  <span>+₪{optionsExtraCost.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-gray-900 border-t pt-1 mt-1">
-                  <span>סה"כ:</span>
-                  <span className="text-primary-600">₪{(totalPrice * qty).toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={handleAdd}
-              disabled={product.stock === 0}
-              className="w-full btn-primary py-3 flex items-center justify-center gap-2 text-base"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              {product.stock === 0 ? 'אזל מהמלאי' : 'הוסף לעגלה'}
-            </button>
           </div>
         </div>
+
+        {/* ── Sticky bottom action bar ── */}
+        {hasOptions && (
+          <div className="fixed bottom-0 right-0 left-0 z-50 bg-gray-900 text-white px-4 py-3 flex items-center justify-between gap-4 shadow-2xl">
+            <div className="flex flex-col shrink-0">
+              <span className="text-xs text-gray-400">מחיר משוער</span>
+              <span className="text-xl font-bold text-amber-400">
+                ₪{estimatedTotal.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex-1 hidden sm:block">
+              <p className="text-xs text-gray-400 leading-tight">
+                קנייה בטוחה! שלם רק מקדמה עכשיו — המחיר הסופי נקבע לאחר מדידה מקצועית.
+              </p>
+            </div>
+            <button
+              onClick={handleAddToCart}
+              disabled={!configurator.isConfigurationComplete() || addingToCart}
+              className={`shrink-0 font-bold py-3 px-5 rounded-xl text-sm transition-all ${
+                configurator.isConfigurationComplete() && !addingToCart
+                  ? 'bg-amber-500 hover:bg-amber-400 text-white'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {addingToCart ? 'מוסיף...' : 'הוסף לעגלה'}
+            </button>
+          </div>
+        )}
+
+        {/* Padding to prevent content hiding behind sticky bar */}
+        {hasOptions && <div className="h-20" />}
       </div>
     </StoreLayout>
   );
