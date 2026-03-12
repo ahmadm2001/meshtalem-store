@@ -357,18 +357,44 @@ export default function AdminProductsPage() {
                 {/* Product Options Preview */}
                 {previewProduct.productOptions && previewProduct.productOptions.length > 0 && (
                   <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                    <h3 className="font-semibold text-blue-800 mb-3 text-sm">אפשרויות המוצר</h3>
+                    <h3 className="font-semibold text-blue-800 mb-3 text-sm">⚙️ אפשרויות המוצר ({previewProduct.productOptions.length} קבוצות)</h3>
                     <div className="space-y-3">
                       {previewProduct.productOptions.map((group: any, gi: number) => (
-                        <div key={gi}>
-                          <p className="text-xs font-semibold text-blue-700 mb-1">{group.name}</p>
-                          <div className="flex flex-wrap gap-2">
+                        <div key={gi} className="bg-white rounded-lg p-3 border border-blue-100">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center shrink-0">
+                              {group.step ?? gi + 1}
+                            </span>
+                            <p className="text-sm font-semibold text-blue-800">{group.name}</p>
+                            {group.type && (
+                              <span className="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full border border-blue-100">
+                                {group.type === 'visual_card' ? 'כרטיסים' : group.type === 'color_grid' ? 'צבעים' : group.type === 'multi_checkbox' ? 'מרובה' : 'בחירה'}
+                              </span>
+                            )}
+                            {group.required === false && (
+                              <span className="text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full">אופציונלי</span>
+                            )}
+                            {group.required !== false && (
+                              <span className="text-xs bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full">חובה</span>
+                            )}
+                            {group.dependsOn?.groupId && (
+                              <span className="text-xs bg-yellow-50 text-yellow-600 px-1.5 py-0.5 rounded-full">תלוי ב: {group.dependsOn.groupId}</span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
                             {group.values.map((val: any, vi: number) => (
-                              <span key={vi} className="text-xs bg-white border border-blue-200 text-blue-700 px-2 py-1 rounded-lg">
-                                {val.label}{val.priceModifier > 0 ? ` (+₪${val.priceModifier})` : ''}
+                              <span key={vi} className="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-2 py-1 rounded-lg flex items-center gap-1">
+                                {group.type === 'color_grid' && val.colorCode && (
+                                  <span className="w-3 h-3 rounded-full border border-blue-200 shrink-0" style={{ backgroundColor: val.colorCode }} />
+                                )}
+                                {val.label}
+                                {val.priceModifier > 0 ? <span className="text-green-600 font-medium"> +₪{val.priceModifier}</span> : ''}
                               </span>
                             ))}
                           </div>
+                          {group.id && (
+                            <p className="text-xs text-gray-300 font-mono mt-1.5">ID: {group.id}</p>
+                          )}
                         </div>
                       ))}
                     </div>
