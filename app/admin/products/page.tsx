@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   CheckCircle, XCircle, Edit, Search, Package, Eye, EyeOff,
   Trash2, X, ShoppingBag, Star, ChevronLeft, ChevronRight,
-  Save, AlertTriangle, Plus, Settings
+  Save, AlertTriangle, Plus, Settings, DoorOpen, Clock, Banknote, Wrench
 } from 'lucide-react';
 import { productsApi, categoriesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -28,15 +28,16 @@ const WARRANTY_OPTIONS = [
   { value: '2years',  label: 'שנתיים' },
   { value: '3years',  label: '3 שנים' },
   { value: '5years',  label: '5 שנים' },
+  { value: '10years', label: '10 שנים' },
 ];
 
-const DELIVERY_OPTIONS = [
-  { value: '',         label: 'לא צוין' },
-  { value: '3-5 days', label: '3-5 ימי עסקים' },
-  { value: '7-14 days',label: '7-14 ימי עסקים' },
-  { value: '2-4 weeks',label: '2-4 שבועות' },
-  { value: '4-8 weeks',label: '4-8 שבועות' },
-  { value: 'custom',   label: 'לפי הזמנה' },
+const MANUFACTURING_TIME_OPTIONS = [
+  { value: '',          label: 'לא צוין' },
+  { value: '2-4 weeks', label: '2-4 שבועות' },
+  { value: '4-6 weeks', label: '4-6 שבועות' },
+  { value: '6-8 weeks', label: '6-8 שבועות' },
+  { value: '8-12 weeks',label: '8-12 שבועות' },
+  { value: 'custom',    label: 'לפי הזמנה (מותאם אישית)' },
 ];
 
 // ─── Empty form factory ───────────────────────────────────────────────────────
@@ -44,11 +45,10 @@ const DELIVERY_OPTIONS = [
 const emptyCreateForm = () => ({
   name: '',
   description: '',
-  price: '',
-  shippingFee: '',
-  stock: '0',
+  baseEstimatedPrice: '',
+  depositAmount: '',
+  manufacturingTime: '',
   warranty: 'none',
-  deliveryTime: '',
   categoryId: '',
   images: '',
   productOptions: [] as AdminOptionGroup[],
@@ -62,7 +62,6 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('approved');
   const [search, setSearch] = useState('');
-  const [vendorFilter, setVendorFilter] = useState('');
 
   // Preview modal
   const [previewProduct, setPreviewProduct] = useState<any | null>(null);
@@ -159,17 +158,18 @@ export default function AdminProductsPage() {
   };
 
   const saveCreate = async () => {
-    if (!createForm.name.trim()) { toast.error('שם המוצר הוא שדה חובה'); return; }
+    if (!createForm.name.trim()) { toast.error('שם דגם הדלת הוא שדה חובה'); return; }
     setCreateSaving(true);
     try {
+      const basePrice = Number(createForm.baseEstimatedPrice) || 0;
+      const deposit = Number(createForm.depositAmount) || 0;
       const payload = {
         name: createForm.name.trim(),
         description: createForm.description.trim(),
-        price: Number(createForm.price) || 0,
-        shippingFee: Number(createForm.shippingFee) || 0,
-        stock: Number(createForm.stock) || 0,
+        baseEstimatedPrice: basePrice || null,
+        depositAmount: deposit || null,
+        manufacturingTime: createForm.manufacturingTime || null,
         warranty: createForm.warranty || null,
-        deliveryTime: createForm.deliveryTime || null,
         categoryId: createForm.categoryId || null,
         images: createForm.images.split('\n').map((s) => s.trim()).filter(Boolean),
         productOptions: createForm.productOptions.length > 0 ? createForm.productOptions : null,
@@ -177,7 +177,7 @@ export default function AdminProductsPage() {
       const r = await productsApi.adminCreate(payload);
       setProducts((p) => [r.data, ...p]);
       setShowCreate(false);
-      toast.success('✅ מוצר נוצר ופורסם בחנות');
+      toast.success('✅ דגם הדלת נוצר ופורסם בחנות');
     } catch (err: any) {
       toast.error(`שגיאה: ${err?.response?.data?.message || err?.message || 'שגיאה ביצירה'}`);
     } finally { setCreateSaving(false); }
@@ -187,7 +187,6 @@ export default function AdminProductsPage() {
 
   const openEdit = async (product: any) => {
     setEditTab('basic');
-    // Load full product to get productOptions
     try {
       const r = await productsApi.getByIdAdmin(product.id);
       const p = r.data;
@@ -195,11 +194,10 @@ export default function AdminProductsPage() {
       setEditForm({
         nameHe: p.nameHe || p.nameAr || '',
         descriptionHe: p.descriptionHe || p.descriptionAr || '',
-        price: p.customerPrice ?? p.price ?? '',
-        shippingFee: p.shippingFee ?? '',
-        stock: p.stock ?? '',
+        baseEstimatedPrice: p.baseEstimatedPrice ?? p.customerPrice ?? p.price ?? '',
+        depositAmount: p.depositAmount ?? '',
+        manufacturingTime: p.manufacturingTime || '',
         warranty: p.warranty || 'none',
-        deliveryTime: p.deliveryTime || '',
         categoryId: p.categoryId || '',
         images: (p.images || []).join('\n'),
         productOptions: (p.productOptions || []) as AdminOptionGroup[],
@@ -209,11 +207,10 @@ export default function AdminProductsPage() {
       setEditForm({
         nameHe: product.nameHe || product.nameAr || '',
         descriptionHe: product.descriptionHe || product.descriptionAr || '',
-        price: product.customerPrice ?? product.price ?? '',
-        shippingFee: product.shippingFee ?? '',
-        stock: product.stock ?? '',
+        baseEstimatedPrice: product.baseEstimatedPrice ?? product.customerPrice ?? product.price ?? '',
+        depositAmount: product.depositAmount ?? '',
+        manufacturingTime: product.manufacturingTime || '',
         warranty: product.warranty || 'none',
-        deliveryTime: product.deliveryTime || '',
         categoryId: product.categoryId || '',
         images: (product.images || []).join('\n'),
         productOptions: (product.productOptions || []) as AdminOptionGroup[],
@@ -225,16 +222,17 @@ export default function AdminProductsPage() {
     if (!editProduct) return;
     setEditSaving(true);
     try {
+      const basePrice = Number(editForm.baseEstimatedPrice) || null;
+      const deposit = Number(editForm.depositAmount) || null;
       const payload = {
         nameHe: editForm.nameHe,
         nameAr: editForm.nameHe,
         descriptionHe: editForm.descriptionHe,
         descriptionAr: editForm.descriptionHe,
-        price: Number(editForm.price),
-        shippingFee: Number(editForm.shippingFee) || 0,
-        stock: Number(editForm.stock),
+        baseEstimatedPrice: basePrice,
+        depositAmount: deposit,
+        manufacturingTime: editForm.manufacturingTime || null,
         warranty: editForm.warranty || null,
-        deliveryTime: editForm.deliveryTime || null,
         categoryId: editForm.categoryId || null,
         images: editForm.images.split('\n').map((s: string) => s.trim()).filter(Boolean),
         productOptions: editForm.productOptions.length > 0 ? editForm.productOptions : null,
@@ -242,7 +240,7 @@ export default function AdminProductsPage() {
       const r = await productsApi.adminUpdate(editProduct.id, payload);
       setProducts((p) => p.map((x) => x.id === editProduct.id ? { ...x, ...r.data } : x));
       setEditProduct(null);
-      toast.success('✅ מוצר עודכן בהצלחה');
+      toast.success('✅ דגם הדלת עודכן בהצלחה');
     } catch (err: any) {
       toast.error(`שגיאה: ${err?.response?.data?.message || err?.message || 'שגיאה בשמירה'}`);
     } finally { setEditSaving(false); }
@@ -250,14 +248,8 @@ export default function AdminProductsPage() {
 
   // ── Derived ──────────────────────────────────────────────────────────────────
 
-  const vendors = Array.from(new Map(
-    products.filter((p) => p.vendor?.user).map((p) => [p.vendor.user.email, p.vendor])
-  ).values());
-
   const filtered = products.filter((p) => {
-    const matchSearch = (p.nameHe || p.nameAr || '').toLowerCase().includes(search.toLowerCase());
-    const matchVendor = !vendorFilter || p.vendorId === vendorFilter;
-    return matchSearch && matchVendor;
+    return (p.nameHe || p.nameAr || '').toLowerCase().includes(search.toLowerCase());
   });
 
   // ── Tab component helper ──────────────────────────────────────────────────────
@@ -267,8 +259,8 @@ export default function AdminProductsPage() {
   }: { active: string; onChange: (t: any) => void; optionsCount: number }) => (
     <div className="flex border-b mb-4">
       {[
-        { key: 'basic',   label: 'פרטי מוצר' },
-        { key: 'options', label: `אפשרויות${optionsCount > 0 ? ` (${optionsCount})` : ''}` },
+        { key: 'basic',   label: 'פרטי הדגם' },
+        { key: 'options', label: `קונפיגורטור${optionsCount > 0 ? ` (${optionsCount})` : ''}` },
         { key: 'images',  label: 'תמונות' },
       ].map((tab) => (
         <button key={tab.key} type="button"
@@ -280,6 +272,132 @@ export default function AdminProductsPage() {
     </div>
   );
 
+  // ── Door basic fields shared between create & edit ────────────────────────────
+
+  const DoorBasicFields = ({
+    form, setForm, isCreate = false
+  }: { form: any; setForm: (f: any) => void; isCreate?: boolean }) => (
+    <div className="space-y-5">
+      {/* Model name */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">
+          שם דגם הדלת <span className="text-red-500">*</span>
+        </label>
+        <input
+          value={isCreate ? form.name : form.nameHe}
+          onChange={(e) => setForm(isCreate
+            ? { ...form, name: e.target.value }
+            : { ...form, nameHe: e.target.value }
+          )}
+          placeholder="לדוגמה: דלת כניסה פרמיום TITAN 900"
+          className="input-field" dir="rtl"
+        />
+        <p className="text-xs text-gray-400 mt-1">שם הדגם שיוצג ללקוחות בחנות</p>
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">תיאור הדגם</label>
+        <textarea
+          value={isCreate ? form.description : form.descriptionHe}
+          onChange={(e) => setForm(isCreate
+            ? { ...form, description: e.target.value }
+            : { ...form, descriptionHe: e.target.value }
+          )}
+          placeholder="תיאור מפורט של הדלת — חומרים, עיצוב, תכונות בטיחות..."
+          className="input-field" rows={4} dir="rtl"
+        />
+      </div>
+
+      {/* Pricing section */}
+      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+        <h3 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+          <Banknote className="w-4 h-4" /> תמחור
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              מחיר בסיס משוער (₪)
+            </label>
+            <input type="number" min={0}
+              value={form.baseEstimatedPrice}
+              onChange={(e) => setForm({ ...form, baseEstimatedPrice: e.target.value })}
+              placeholder="0"
+              className="input-field"
+            />
+            <p className="text-xs text-gray-400 mt-1">לפני הוספת אפשרויות קונפיגורציה</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              דמי מקדמה (₪)
+            </label>
+            <input type="number" min={0}
+              value={form.depositAmount}
+              onChange={(e) => setForm({ ...form, depositAmount: e.target.value })}
+              placeholder="0"
+              className="input-field"
+            />
+            <p className="text-xs text-gray-400 mt-1">סכום שהלקוח משלם בהזמנה</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Manufacturing & warranty */}
+      <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <Wrench className="w-4 h-4" /> ייצור ואחריות
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              זמן ייצור
+            </label>
+            <select
+              value={form.manufacturingTime}
+              onChange={(e) => setForm({ ...form, manufacturingTime: e.target.value })}
+              className="input-field text-sm"
+            >
+              {MANUFACTURING_TIME_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              אחריות
+            </label>
+            <select
+              value={form.warranty}
+              onChange={(e) => setForm({ ...form, warranty: e.target.value })}
+              className="input-field text-sm"
+            >
+              {WARRANTY_OPTIONS.map((w) => (
+                <option key={w.value} value={w.value}>{w.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Category */}
+      {categories.length > 0 && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">קטגוריה</label>
+          <select
+            value={form.categoryId}
+            onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+            className="input-field"
+          >
+            <option value="">— ללא קטגוריה —</option>
+            {categories.map((c: any) => (
+              <option key={c.id} value={c.id}>{c.nameHe || c.nameAr}</option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────────
@@ -288,11 +406,17 @@ export default function AdminProductsPage() {
     <div dir="rtl">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">ניהול מוצרים</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <DoorOpen className="w-6 h-6 text-blue-600" />
+            דגמי דלתות
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">ניהול קטלוג הדלתות של Q DOOR</p>
+        </div>
         <button onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors shadow-sm">
           <Plus className="w-4 h-4" />
-          מוצר חדש
+          דגם חדש
         </button>
       </div>
 
@@ -302,22 +426,13 @@ export default function AdminProductsPage() {
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="חיפוש מוצרים..." className="input-field pr-9" />
+              placeholder="חיפוש דגמים..." className="input-field pr-9" />
           </div>
-          {vendors.length > 0 && (
-            <select value={vendorFilter} onChange={(e) => setVendorFilter(e.target.value)}
-              className="input-field text-sm">
-              <option value="">כל הספקים</option>
-              {vendors.map((v: any) => (
-                <option key={v.id} value={v.id}>{v.businessName || v.user?.email}</option>
-              ))}
-            </select>
-          )}
           <div className="flex gap-2 flex-wrap">
             {['pending', 'approved', 'rejected'].map((s) => (
               <button key={s} onClick={() => setFilter(s)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === s ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                {{ pending: 'ממתינים', approved: 'מאושרים', rejected: 'נדחו' }[s]}
+                {{ pending: 'ממתינים', approved: 'פעילים', rejected: 'נדחו' }[s]}
               </button>
             ))}
           </div>
@@ -329,11 +444,11 @@ export default function AdminProductsPage() {
         <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="card animate-pulse h-20" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="card text-center py-12">
-          <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-          <p className="text-gray-500 mb-4">לא נמצאו מוצרים</p>
+          <DoorOpen className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+          <p className="text-gray-500 mb-4">לא נמצאו דגמים</p>
           <button onClick={openCreate}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium">
-            <Plus className="w-4 h-4" /> צור מוצר ראשון
+            <Plus className="w-4 h-4" /> הוסף דגם ראשון
           </button>
         </div>
       ) : (
@@ -347,7 +462,7 @@ export default function AdminProductsPage() {
                     <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Package className="w-6 h-6 text-gray-300" />
+                      <DoorOpen className="w-6 h-6 text-gray-300" />
                     </div>
                   )}
                 </div>
@@ -364,15 +479,27 @@ export default function AdminProductsPage() {
                     )}
                     {product.productOptions?.length > 0 && (
                       <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Settings className="w-3 h-3" /> {product.productOptions.length} אפשרויות
+                        <Settings className="w-3 h-3" /> {product.productOptions.length} קבוצות
                       </span>
                     )}
                   </div>
                   <div className="flex gap-3 mt-1 text-xs text-gray-500 flex-wrap">
-                    <span>₪{Number(product.customerPrice ?? product.price).toFixed(2)}</span>
-                    <span>מלאי: {product.stock}</span>
-                    {product.vendor?.businessName && (
-                      <span className="text-blue-600">ספק: {product.vendor.businessName}</span>
+                    {(product.baseEstimatedPrice || product.customerPrice || product.price) && (
+                      <span className="flex items-center gap-1">
+                        <Banknote className="w-3 h-3" />
+                        מחיר בסיס: ₪{Number(product.baseEstimatedPrice ?? product.customerPrice ?? product.price).toLocaleString()}
+                      </span>
+                    )}
+                    {product.depositAmount && (
+                      <span className="flex items-center gap-1 text-green-600">
+                        מקדמה: ₪{Number(product.depositAmount).toLocaleString()}
+                      </span>
+                    )}
+                    {product.manufacturingTime && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {product.manufacturingTime}
+                      </span>
                     )}
                     {product.category?.nameHe && (
                       <span>קטגוריה: {product.category.nameHe}</span>
@@ -391,13 +518,13 @@ export default function AdminProductsPage() {
                     <Edit className="w-4 h-4" />
                   </button>
                   <button onClick={() => toggleHide(product.id)}
-                    title={product.isHidden ? 'הצג מוצר' : 'הסתר מוצר'}
+                    title={product.isHidden ? 'הצג דגם' : 'הסתר דגם'}
                     className={`p-1.5 rounded-lg transition-colors ${product.isHidden ? 'text-green-500 hover:bg-green-50' : 'text-orange-400 hover:bg-orange-50'}`}>
                     {product.isHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
                   {product.status === 'pending' && (
                     <>
-                      <button onClick={() => openPreview(product)}
+                      <button onClick={() => approve(product.id)}
                         className="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg text-xs font-medium">
                         <CheckCircle className="w-3.5 h-3.5" />אשר
                       </button>
@@ -425,8 +552,11 @@ export default function AdminProductsPage() {
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
               <div>
-                <h2 className="font-bold text-gray-900 text-lg">➕ יצירת מוצר חדש</h2>
-                <p className="text-xs text-gray-500 mt-0.5">המוצר יפורסם מיד בחנות (מאושר אוטומטית)</p>
+                <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                  <DoorOpen className="w-5 h-5 text-blue-600" />
+                  הוספת דגם דלת חדש
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">הדגם יפורסם מיד בחנות (מאושר אוטומטית)</p>
               </div>
               <button onClick={() => setShowCreate(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
@@ -438,110 +568,28 @@ export default function AdminProductsPage() {
 
               {/* Basic Tab */}
               {createTab === 'basic' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">שם המוצר <span className="text-red-500">*</span></label>
-                    <input
-                      value={createForm.name}
-                      onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                      placeholder="לדוגמה: דלת כניסה פרמיום מסדרת TITAN"
-                      className="input-field" dir="rtl"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">תיאור המוצר</label>
-                    <textarea
-                      value={createForm.description}
-                      onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                      placeholder="תיאור מפורט של המוצר..."
-                      className="input-field" rows={4} dir="rtl"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">מחיר בסיס (₪)</label>
-                      <input type="number" min={0}
-                        value={createForm.price}
-                        onChange={(e) => setCreateForm({ ...createForm, price: e.target.value })}
-                        placeholder="0"
-                        className="input-field"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">דמי משלוח (₪)</label>
-                      <input type="number" min={0}
-                        value={createForm.shippingFee}
-                        onChange={(e) => setCreateForm({ ...createForm, shippingFee: e.target.value })}
-                        placeholder="0"
-                        className="input-field"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">מלאי</label>
-                      <input type="number" min={0}
-                        value={createForm.stock}
-                        onChange={(e) => setCreateForm({ ...createForm, stock: e.target.value })}
-                        className="input-field"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">קטגוריה</label>
-                      <select
-                        value={createForm.categoryId}
-                        onChange={(e) => setCreateForm({ ...createForm, categoryId: e.target.value })}
-                        className="input-field"
-                      >
-                        <option value="">— ללא קטגוריה —</option>
-                        {categories.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.nameHe || c.nameAr}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">אחריות</label>
-                      <select
-                        value={createForm.warranty}
-                        onChange={(e) => setCreateForm({ ...createForm, warranty: e.target.value })}
-                        className="input-field"
-                      >
-                        {WARRANTY_OPTIONS.map((w) => (
-                          <option key={w.value} value={w.value}>{w.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">זמן אספקה</label>
-                      <select
-                        value={createForm.deliveryTime}
-                        onChange={(e) => setCreateForm({ ...createForm, deliveryTime: e.target.value })}
-                        className="input-field"
-                      >
-                        {DELIVERY_OPTIONS.map((d) => (
-                          <option key={d.value} value={d.value}>{d.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
+                <DoorBasicFields form={createForm} setForm={setCreateForm} isCreate={true} />
               )}
 
               {/* Options Tab */}
               {createTab === 'options' && (
-                <AdminOptionGroupBuilder
-                  value={createForm.productOptions}
-                  onChange={(groups) => setCreateForm({ ...createForm, productOptions: groups })}
-                />
+                <div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-sm text-blue-700">
+                    <strong>קונפיגורטור הדלת</strong> — הגדר את אפשרויות הבחירה שהלקוח יעבור בעת הזמנת הדלת.
+                    כל קבוצה מייצגת שלב בבחירה (סוג דלת, גובה, צבע, מנעול וכו׳).
+                  </div>
+                  <AdminOptionGroupBuilder
+                    value={createForm.productOptions}
+                    onChange={(groups) => setCreateForm({ ...createForm, productOptions: groups })}
+                  />
+                </div>
               )}
 
               {/* Images Tab */}
               {createTab === 'images' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    תמונות המוצר <span className="text-gray-400 text-xs">(URL אחד בכל שורה)</span>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    תמונות הדגם <span className="text-gray-400 text-xs font-normal">(URL אחד בכל שורה)</span>
                   </label>
                   <textarea
                     value={createForm.images}
@@ -568,8 +616,8 @@ export default function AdminProductsPage() {
             <div className="p-4 border-t flex gap-3 sticky bottom-0 bg-white">
               <button onClick={saveCreate} disabled={createSaving}
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold disabled:opacity-50 transition-colors">
-                <Plus className="w-5 h-5" />
-                {createSaving ? 'יוצר מוצר...' : 'צור ופרסם מוצר'}
+                <DoorOpen className="w-5 h-5" />
+                {createSaving ? 'מוסיף דגם...' : 'הוסף ופרסם דגם'}
               </button>
               <button onClick={() => setShowCreate(false)}
                 className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium">
@@ -587,7 +635,7 @@ export default function AdminProductsPage() {
             <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
               <div>
                 <h2 className="font-bold text-gray-900">תצוגה מקדימה</h2>
-                <p className="text-xs text-gray-500 mt-0.5">כך הלקוח יראה את המוצר</p>
+                <p className="text-xs text-gray-500 mt-0.5">כך הלקוח יראה את הדגם</p>
               </div>
               <button onClick={() => setPreviewProduct(null)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
@@ -626,18 +674,53 @@ export default function AdminProductsPage() {
 
               <div className="space-y-4">
                 <h1 className="text-2xl font-bold text-gray-900">{previewProduct.nameHe || previewProduct.nameAr}</h1>
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl font-bold text-primary-600">
-                    ₪{Number(previewProduct.customerPrice ?? previewProduct.price).toFixed(2)}
-                  </span>
-                  <div className="flex items-center gap-1 text-yellow-400">
-                    {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
+
+                {/* Pricing info */}
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                  <div className="flex flex-wrap gap-4">
+                    {(previewProduct.baseEstimatedPrice || previewProduct.customerPrice) && (
+                      <div>
+                        <p className="text-xs text-blue-600 font-medium mb-0.5">מחיר בסיס משוער</p>
+                        <p className="text-2xl font-bold text-blue-800">
+                          ₪{Number(previewProduct.baseEstimatedPrice ?? previewProduct.customerPrice).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    {previewProduct.depositAmount && (
+                      <div>
+                        <p className="text-xs text-green-600 font-medium mb-0.5">דמי מקדמה</p>
+                        <p className="text-2xl font-bold text-green-700">
+                          ₪{Number(previewProduct.depositAmount).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
                   </div>
+                </div>
+
+                {/* Meta info */}
+                <div className="flex flex-wrap gap-3 text-sm text-gray-500">
+                  {previewProduct.manufacturingTime && (
+                    <span className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      זמן ייצור: {previewProduct.manufacturingTime}
+                    </span>
+                  )}
+                  {previewProduct.warranty && previewProduct.warranty !== 'none' && (
+                    <span className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
+                      <Star className="w-4 h-4 text-yellow-400" />
+                      אחריות: {WARRANTY_OPTIONS.find((w) => w.value === previewProduct.warranty)?.label || previewProduct.warranty}
+                    </span>
+                  )}
+                  {previewProduct.category?.nameHe && (
+                    <span className="bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
+                      קטגוריה: {previewProduct.category.nameHe}
+                    </span>
+                  )}
                 </div>
 
                 {(previewProduct.descriptionHe || previewProduct.descriptionAr) && (
                   <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">תיאור המוצר</h3>
+                    <h3 className="font-semibold text-gray-700 mb-2">תיאור הדגם</h3>
                     <p className="text-gray-600 text-sm leading-relaxed" dir="rtl">
                       {previewProduct.descriptionHe || previewProduct.descriptionAr}
                     </p>
@@ -648,7 +731,7 @@ export default function AdminProductsPage() {
                 {previewProduct.productOptions?.length > 0 && (
                   <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                     <h3 className="font-semibold text-blue-800 mb-3 text-sm">
-                      ⚙️ אפשרויות הקונפיגורטור ({previewProduct.productOptions.length} קבוצות)
+                      ⚙️ קונפיגורטור הדלת ({previewProduct.productOptions.length} קבוצות)
                     </h3>
                     <div className="space-y-3">
                       {previewProduct.productOptions.map((group: any, gi: number) => (
@@ -690,17 +773,9 @@ export default function AdminProductsPage() {
                   </div>
                 )}
 
-                <div className="flex gap-4 text-sm text-gray-500">
-                  <span>מלאי: {previewProduct.stock} יחידות</span>
-                  {previewProduct.category?.nameHe && <span>קטגוריה: {previewProduct.category.nameHe}</span>}
-                  {previewProduct.warranty && previewProduct.warranty !== 'none' && (
-                    <span>אחריות: {WARRANTY_OPTIONS.find((w) => w.value === previewProduct.warranty)?.label || previewProduct.warranty}</span>
-                  )}
-                </div>
-
                 <button className="w-full btn-primary flex items-center justify-center gap-2 py-3 pointer-events-none opacity-90">
                   <ShoppingBag className="w-5 h-5" />
-                  הוסף לעגלה (תצוגה בלבד)
+                  הזמן עכשיו — שלם מקדמה (תצוגה בלבד)
                 </button>
               </div>
             </div>
@@ -713,7 +788,7 @@ export default function AdminProductsPage() {
                 </button>
                 <button onClick={() => { setRejectId(previewProduct.id); setRejectReason(''); setPreviewProduct(null); }}
                   className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-semibold border border-red-200 transition-colors">
-                  <XCircle className="w-5 h-5" /> דחה מוצר
+                  <XCircle className="w-5 h-5" /> דחה דגם
                 </button>
               </div>
             )}
@@ -727,7 +802,10 @@ export default function AdminProductsPage() {
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
               <div>
-                <h2 className="font-bold text-gray-900">עריכת מוצר</h2>
+                <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                  <Edit className="w-4 h-4 text-gray-500" />
+                  עריכת דגם דלת
+                </h2>
                 <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{editProduct.nameHe || editProduct.nameAr}</p>
               </div>
               <button onClick={() => setEditProduct(null)} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -740,90 +818,27 @@ export default function AdminProductsPage() {
 
               {/* Basic Tab */}
               {editTab === 'basic' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">שם המוצר</label>
-                    <input value={editForm.nameHe}
-                      onChange={(e) => setEditForm({ ...editForm, nameHe: e.target.value })}
-                      className="input-field" dir="rtl" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">תיאור המוצר</label>
-                    <textarea value={editForm.descriptionHe}
-                      onChange={(e) => setEditForm({ ...editForm, descriptionHe: e.target.value })}
-                      className="input-field" rows={4} dir="rtl" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">מחיר (₪)</label>
-                      <input type="number" min={0} value={editForm.price}
-                        onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
-                        className="input-field" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">דמי משלוח (₪)</label>
-                      <input type="number" min={0} value={editForm.shippingFee}
-                        onChange={(e) => setEditForm({ ...editForm, shippingFee: e.target.value })}
-                        className="input-field" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">מלאי</label>
-                      <input type="number" min={0} value={editForm.stock}
-                        onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
-                        className="input-field" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">קטגוריה</label>
-                      <select value={editForm.categoryId}
-                        onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
-                        className="input-field">
-                        <option value="">— ללא קטגוריה —</option>
-                        {categories.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.nameHe || c.nameAr}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">אחריות</label>
-                      <select value={editForm.warranty}
-                        onChange={(e) => setEditForm({ ...editForm, warranty: e.target.value })}
-                        className="input-field">
-                        {WARRANTY_OPTIONS.map((w) => (
-                          <option key={w.value} value={w.value}>{w.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">זמן אספקה</label>
-                      <select value={editForm.deliveryTime}
-                        onChange={(e) => setEditForm({ ...editForm, deliveryTime: e.target.value })}
-                        className="input-field">
-                        {DELIVERY_OPTIONS.map((d) => (
-                          <option key={d.value} value={d.value}>{d.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
+                <DoorBasicFields form={editForm} setForm={setEditForm} isCreate={false} />
               )}
 
               {/* Options Tab */}
               {editTab === 'options' && (
-                <AdminOptionGroupBuilder
-                  value={editForm.productOptions || []}
-                  onChange={(groups) => setEditForm({ ...editForm, productOptions: groups })}
-                />
+                <div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-sm text-blue-700">
+                    <strong>קונפיגורטור הדלת</strong> — הגדר את אפשרויות הבחירה שהלקוח יעבור בעת הזמנת הדלת.
+                  </div>
+                  <AdminOptionGroupBuilder
+                    value={editForm.productOptions || []}
+                    onChange={(groups) => setEditForm({ ...editForm, productOptions: groups })}
+                  />
+                </div>
               )}
 
               {/* Images Tab */}
               {editTab === 'images' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    תמונות המוצר <span className="text-gray-400 text-xs">(URL אחד בכל שורה)</span>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    תמונות הדגם <span className="text-gray-400 text-xs font-normal">(URL אחד בכל שורה)</span>
                   </label>
                   <textarea value={editForm.images}
                     onChange={(e) => setEditForm({ ...editForm, images: e.target.value })}
@@ -866,14 +881,14 @@ export default function AdminProductsPage() {
               <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
               </div>
-              <h2 className="font-bold text-gray-900">דחיית מוצר</h2>
+              <h2 className="font-bold text-gray-900">דחיית דגם</h2>
             </div>
             <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
               placeholder="סיבת הדחייה..." className="input-field mb-4" rows={3} />
             <div className="flex gap-3">
               <button onClick={submitReject} disabled={!rejectReason.trim()}
                 className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold disabled:opacity-40">
-                דחה מוצר
+                דחה דגם
               </button>
               <button onClick={() => setRejectId(null)}
                 className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl">
