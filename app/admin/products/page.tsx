@@ -8,6 +8,7 @@ import {
 import { productsApi, categoriesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 import AdminOptionGroupBuilder, { AdminOptionGroup } from '@/components/admin/AdminOptionGroupBuilder';
+import ImageUploader from '@/components/admin/ImageUploader';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -32,12 +33,12 @@ const WARRANTY_OPTIONS = [
 ];
 
 const MANUFACTURING_TIME_OPTIONS = [
-  { value: '',          label: 'לא צוין' },
-  { value: '2-4 weeks', label: '2-4 שבועות' },
-  { value: '4-6 weeks', label: '4-6 שבועות' },
-  { value: '6-8 weeks', label: '6-8 שבועות' },
-  { value: '8-12 weeks',label: '8-12 שבועות' },
-  { value: 'custom',    label: 'לפי הזמנה (מותאם אישית)' },
+  { value: '',           label: 'לא צוין' },
+  { value: '2-4 weeks',  label: '2-4 שבועות' },
+  { value: '4-6 weeks',  label: '4-6 שבועות' },
+  { value: '6-8 weeks',  label: '6-8 שבועות' },
+  { value: '8-12 weeks', label: '8-12 שבועות' },
+  { value: 'custom',     label: 'לפי הזמנה (מותאם אישית)' },
 ];
 
 // ─── Empty form factory ───────────────────────────────────────────────────────
@@ -50,7 +51,7 @@ const emptyCreateForm = () => ({
   manufacturingTime: '',
   warranty: 'none',
   categoryId: '',
-  images: '',
+  images: [] as string[],
   productOptions: [] as AdminOptionGroup[],
 });
 
@@ -171,7 +172,7 @@ export default function AdminProductsPage() {
         manufacturingTime: createForm.manufacturingTime || null,
         warranty: createForm.warranty || null,
         categoryId: createForm.categoryId || null,
-        images: createForm.images.split('\n').map((s) => s.trim()).filter(Boolean),
+        images: createForm.images,
         productOptions: createForm.productOptions.length > 0 ? createForm.productOptions : null,
       };
       const r = await productsApi.adminCreate(payload);
@@ -199,7 +200,7 @@ export default function AdminProductsPage() {
         manufacturingTime: p.manufacturingTime || '',
         warranty: p.warranty || 'none',
         categoryId: p.categoryId || '',
-        images: (p.images || []).join('\n'),
+        images: (p.images || []) as string[],
         productOptions: (p.productOptions || []) as AdminOptionGroup[],
       });
     } catch {
@@ -212,7 +213,7 @@ export default function AdminProductsPage() {
         manufacturingTime: product.manufacturingTime || '',
         warranty: product.warranty || 'none',
         categoryId: product.categoryId || '',
-        images: (product.images || []).join('\n'),
+        images: (product.images || []) as string[],
         productOptions: (product.productOptions || []) as AdminOptionGroup[],
       });
     }
@@ -234,8 +235,8 @@ export default function AdminProductsPage() {
         manufacturingTime: editForm.manufacturingTime || null,
         warranty: editForm.warranty || null,
         categoryId: editForm.categoryId || null,
-        images: editForm.images.split('\n').map((s: string) => s.trim()).filter(Boolean),
-        productOptions: editForm.productOptions.length > 0 ? editForm.productOptions : null,
+        images: editForm.images,
+        productOptions: editForm.productOptions?.length > 0 ? editForm.productOptions : null,
       };
       const r = await productsApi.adminUpdate(editProduct.id, payload);
       setProducts((p) => p.map((x) => x.id === editProduct.id ? { ...x, ...r.data } : x));
@@ -255,13 +256,13 @@ export default function AdminProductsPage() {
   // ── Tab component helper ──────────────────────────────────────────────────────
 
   const TabBar = ({
-    active, onChange, optionsCount
-  }: { active: string; onChange: (t: any) => void; optionsCount: number }) => (
+    active, onChange, optionsCount, imagesCount
+  }: { active: string; onChange: (t: any) => void; optionsCount: number; imagesCount: number }) => (
     <div className="flex border-b mb-4">
       {[
         { key: 'basic',   label: 'פרטי הדגם' },
         { key: 'options', label: `קונפיגורטור${optionsCount > 0 ? ` (${optionsCount})` : ''}` },
-        { key: 'images',  label: 'תמונות' },
+        { key: 'images',  label: `תמונות${imagesCount > 0 ? ` (${imagesCount})` : ''}` },
       ].map((tab) => (
         <button key={tab.key} type="button"
           onClick={() => onChange(tab.key)}
@@ -479,7 +480,12 @@ export default function AdminProductsPage() {
                     )}
                     {product.productOptions?.length > 0 && (
                       <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Settings className="w-3 h-3" /> {product.productOptions.length} קבוצות
+                        <Settings className="w-3 h-3" /> {product.productOptions.length} שלבים
+                      </span>
+                    )}
+                    {product.images?.length > 0 && (
+                      <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full">
+                        📷 {product.images.length}
                       </span>
                     )}
                   </div>
@@ -564,7 +570,12 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="p-6">
-              <TabBar active={createTab} onChange={setCreateTab} optionsCount={createForm.productOptions.length} />
+              <TabBar
+                active={createTab}
+                onChange={setCreateTab}
+                optionsCount={createForm.productOptions.length}
+                imagesCount={createForm.images.length}
+              />
 
               {/* Basic Tab */}
               {createTab === 'basic' && (
@@ -575,8 +586,8 @@ export default function AdminProductsPage() {
               {createTab === 'options' && (
                 <div>
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-sm text-blue-700">
-                    <strong>קונפיגורטור הדלת</strong> — הגדר את אפשרויות הבחירה שהלקוח יעבור בעת הזמנת הדלת.
-                    כל קבוצה מייצגת שלב בבחירה (סוג דלת, גובה, צבע, מנעול וכו׳).
+                    <strong>קונפיגורטור הדלת</strong> — הגדר את שלבי הבחירה שהלקוח יעבור בעת הזמנת הדלת.
+                    כל שלב מייצג קבוצת בחירה (סוג דלת, גובה, צבע, מנעול וכו׳).
                   </div>
                   <AdminOptionGroupBuilder
                     value={createForm.productOptions}
@@ -588,26 +599,16 @@ export default function AdminProductsPage() {
               {/* Images Tab */}
               {createTab === 'images' && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    תמונות הדגם <span className="text-gray-400 text-xs font-normal">(URL אחד בכל שורה)</span>
-                  </label>
-                  <textarea
-                    value={createForm.images}
-                    onChange={(e) => setCreateForm({ ...createForm, images: e.target.value })}
-                    className="input-field font-mono text-xs" rows={8}
-                    placeholder="https://example.com/door-front.jpg&#10;https://example.com/door-side.jpg&#10;https://example.com/door-detail.jpg"
-                    dir="ltr"
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-4 text-sm text-amber-700">
+                    <strong>טיפ:</strong> הוסף תמונות של הדלת — מהמכשיר שלך, מהגלריה, או על ידי הדבקת קישור URL.
+                    התמונה הראשונה תוצג כתמונה הראשית.
+                  </div>
+                  <ImageUploader
+                    images={createForm.images}
+                    onChange={(imgs) => setCreateForm({ ...createForm, images: imgs })}
+                    maxImages={10}
+                    label="תמונות הדגם"
                   />
-                  {createForm.images && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {createForm.images.split('\n').map((url, i) => url.trim() && (
-                        <div key={i} className="w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                          <img src={url.trim()} alt="" className="w-full h-full object-cover"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -731,7 +732,7 @@ export default function AdminProductsPage() {
                 {previewProduct.productOptions?.length > 0 && (
                   <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                     <h3 className="font-semibold text-blue-800 mb-3 text-sm">
-                      ⚙️ קונפיגורטור הדלת ({previewProduct.productOptions.length} קבוצות)
+                      ⚙️ קונפיגורטור הדלת ({previewProduct.productOptions.length} שלבים)
                     </h3>
                     <div className="space-y-3">
                       {previewProduct.productOptions.map((group: any, gi: number) => (
@@ -749,11 +750,6 @@ export default function AdminProductsPage() {
                             <span className={`text-xs px-1.5 py-0.5 rounded-full ${group.required !== false ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'}`}>
                               {group.required !== false ? 'חובה' : 'אופציונלי'}
                             </span>
-                            {group.dependsOn?.groupId && (
-                              <span className="text-xs bg-yellow-50 text-yellow-600 px-1.5 py-0.5 rounded-full">
-                                תלוי ב: {group.dependsOn.groupId}
-                              </span>
-                            )}
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {group.values.map((val: any, vi: number) => (
@@ -761,12 +757,14 @@ export default function AdminProductsPage() {
                                 {group.type === 'color_grid' && val.colorCode && (
                                   <span className="w-3 h-3 rounded-full border border-blue-200 shrink-0" style={{ backgroundColor: val.colorCode }} />
                                 )}
+                                {val.imageOverride && (
+                                  <img src={val.imageOverride} alt="" className="w-4 h-4 rounded object-cover shrink-0" />
+                                )}
                                 {val.label}
                                 {val.priceModifier > 0 && <span className="text-green-600 font-medium"> +₪{val.priceModifier}</span>}
                               </span>
                             ))}
                           </div>
-                          {group.id && <p className="text-xs text-gray-300 font-mono mt-1.5">ID: {group.id}</p>}
                         </div>
                       ))}
                     </div>
@@ -814,7 +812,12 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="p-6">
-              <TabBar active={editTab} onChange={setEditTab} optionsCount={editForm.productOptions?.length || 0} />
+              <TabBar
+                active={editTab}
+                onChange={setEditTab}
+                optionsCount={editForm.productOptions?.length || 0}
+                imagesCount={editForm.images?.length || 0}
+              />
 
               {/* Basic Tab */}
               {editTab === 'basic' && (
@@ -825,7 +828,7 @@ export default function AdminProductsPage() {
               {editTab === 'options' && (
                 <div>
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-sm text-blue-700">
-                    <strong>קונפיגורטור הדלת</strong> — הגדר את אפשרויות הבחירה שהלקוח יעבור בעת הזמנת הדלת.
+                    <strong>קונפיגורטור הדלת</strong> — הגדר את שלבי הבחירה שהלקוח יעבור בעת הזמנת הדלת.
                   </div>
                   <AdminOptionGroupBuilder
                     value={editForm.productOptions || []}
@@ -837,23 +840,16 @@ export default function AdminProductsPage() {
               {/* Images Tab */}
               {editTab === 'images' && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    תמונות הדגם <span className="text-gray-400 text-xs font-normal">(URL אחד בכל שורה)</span>
-                  </label>
-                  <textarea value={editForm.images}
-                    onChange={(e) => setEditForm({ ...editForm, images: e.target.value })}
-                    className="input-field font-mono text-xs" rows={8} dir="ltr"
-                    placeholder="https://example.com/image1.jpg" />
-                  {editForm.images && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {editForm.images.split('\n').map((url: string, i: number) => url.trim() && (
-                        <div key={i} className="w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                          <img src={url.trim()} alt="" className="w-full h-full object-cover"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-4 text-sm text-amber-700">
+                    <strong>טיפ:</strong> הוסף תמונות של הדלת — מהמכשיר שלך, מהגלריה, או על ידי הדבקת קישור URL.
+                    התמונה הראשונה תוצג כתמונה הראשית.
+                  </div>
+                  <ImageUploader
+                    images={editForm.images || []}
+                    onChange={(imgs) => setEditForm({ ...editForm, images: imgs })}
+                    maxImages={10}
+                    label="תמונות הדגם"
+                  />
                 </div>
               )}
             </div>

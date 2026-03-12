@@ -81,4 +81,20 @@ export const vendorsApi = {
   getById: (id: string) => api.get(`/vendors/admin/${id}`),
 };
 
+// ─── Uploads ────────────────────────────────────────────────────────────────
+export const uploadsApi = {
+  /**
+   * Upload a File object and return the hosted URL.
+   * Uses POST /uploads/image (multipart/form-data).
+   */
+  uploadImage: async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const r = await api.post('/uploads/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return r.data.url as string;
+  },
+};
+
 export default api;
