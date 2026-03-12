@@ -6,7 +6,6 @@ import { useCartStore } from '@/store';
 import StoreLayout from '@/components/layout/StoreLayout';
 import toast from 'react-hot-toast';
 import axios from 'axios';
-import { getColorByKey } from '@/lib/colors';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
@@ -46,6 +45,7 @@ export default function CheckoutPage() {
           productId: i.productId,
           quantity: i.quantity,
           selectedColor: i.selectedColor || undefined,
+          selectedOptions: i.selectedOptions && i.selectedOptions.length > 0 ? i.selectedOptions : undefined,
         })),
         guestName: form.guestName,
         guestPhone: form.guestPhone,
@@ -70,7 +70,7 @@ export default function CheckoutPage() {
   if (done) {
     return (
       <StoreLayout>
-        <div className="max-w-lg mx-auto px-4 py-16 text-center">
+        <div className="max-w-lg mx-auto px-4 py-16 text-center" dir="rtl">
           <CheckCircle className="w-20 h-20 mx-auto mb-4 text-green-500" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">ההזמנה התקבלה!</h2>
           <p className="text-gray-500 mb-2">תודה על הרכישה. נעדכן אותך בסטטוס ההזמנה בהקדם.</p>
@@ -85,7 +85,7 @@ export default function CheckoutPage() {
 
   return (
     <StoreLayout>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8" dir="rtl">
         <h1 className="text-2xl font-bold text-gray-900 mb-8 text-center">פרטי משלוח ותשלום</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -108,6 +108,7 @@ export default function CheckoutPage() {
                     required
                     placeholder="ישראל ישראלי"
                     className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    dir="rtl"
                   />
                 </div>
                 <div>
@@ -153,6 +154,7 @@ export default function CheckoutPage() {
                     required
                     placeholder="תל אביב"
                     className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    dir="rtl"
                   />
                 </div>
                 <div>
@@ -164,6 +166,7 @@ export default function CheckoutPage() {
                     required
                     placeholder="רחוב הרצל 10"
                     className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    dir="rtl"
                   />
                 </div>
                 <div>
@@ -174,6 +177,7 @@ export default function CheckoutPage() {
                     onChange={handleChange}
                     placeholder="דירה 5, קומה 2"
                     className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    dir="rtl"
                   />
                 </div>
                 <div>
@@ -184,6 +188,7 @@ export default function CheckoutPage() {
                     onChange={handleChange}
                     placeholder="קוד כניסה, שעות מועדפות..."
                     className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    dir="rtl"
                   />
                 </div>
               </div>
@@ -211,32 +216,25 @@ export default function CheckoutPage() {
           <div className="bg-white rounded-2xl border border-gray-200 p-6 h-fit">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">סיכום הזמנה</h2>
             <div className="space-y-3 mb-4">
-              {items.map((item, idx) => {
-                const colorInfo = item.selectedColor ? getColorByKey(item.selectedColor) : null;
-                return (
-                  <div key={`${item.productId}-${item.selectedColor || idx}`} className="flex justify-between text-sm">
-                    <div className="flex items-center gap-2 truncate max-w-[160px]">
-                      {colorInfo && (
-                        <span
-                          className="inline-block rounded shrink-0"
-                          style={{
-                            width: 14,
-                            height: 14,
-                            backgroundColor: colorInfo.hex,
-                            border: colorInfo.hex === '#FFFFFF' || colorInfo.hex === '#E5D3B3'
-                              ? '1px solid #d1d5db'
-                              : '1px solid rgba(0,0,0,0.1)',
-                          }}
-                        />
-                      )}
-                      <span className="text-gray-700 truncate">
-                        {item.name} <span className="text-gray-400">×{item.quantity}</span>
-                      </span>
-                    </div>
+              {items.map((item, idx) => (
+                <div key={`${item.productId}-${idx}`} className="text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-700 truncate max-w-[160px]">
+                      {item.name} <span className="text-gray-400">×{item.quantity}</span>
+                    </span>
                     <span className="font-medium text-gray-900 shrink-0">₪{(item.price * item.quantity).toFixed(0)}</span>
                   </div>
-                );
-              })}
+                  {item.selectedOptions && item.selectedOptions.length > 0 && (
+                    <div className="mt-0.5 flex flex-wrap gap-1">
+                      {item.selectedOptions.map((opt, oi) => (
+                        <span key={oi} className="text-xs text-gray-400">
+                          {opt.groupName}: {opt.selectedValue}{opt.priceModifier > 0 ? ` (+₪${opt.priceModifier})` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
             <div className="border-t border-gray-100 pt-3 space-y-2 text-sm">
               <div className="flex justify-between text-gray-600">

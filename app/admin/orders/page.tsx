@@ -185,7 +185,7 @@ export default function AdminOrdersPage() {
                           <thead className="bg-gray-50 border-t border-gray-100">
                             <tr>
                               <th className="text-right px-3 py-2 text-gray-400 font-medium">מוצר</th>
-                              <th className="text-right px-3 py-2 text-gray-400 font-medium">צבע</th>
+                              <th className="text-right px-3 py-2 text-gray-400 font-medium">אפשרויות</th>
                               <th className="text-right px-3 py-2 text-gray-400 font-medium">אספקה</th>
                               <th className="text-right px-3 py-2 text-gray-400 font-medium">ספק</th>
                               <th className="text-center px-3 py-2 text-gray-400 font-medium">כמות</th>
@@ -208,34 +208,33 @@ export default function AdminOrdersPage() {
                               const costTotal = Number(item.costTotal ?? (vp + sf) * qty);
                               const itemProfit = Number(item.itemProfit ?? customerTotal - costTotal);
 
-                              // Color + delivery time
-                              const colorInfo = item.selectedColor ? getColorByKey(item.selectedColor) : null;
+                              // Options + delivery time
                               const deliveryLabel = item.deliveryTimeAtPurchase ? getDeliveryLabelHe(item.deliveryTimeAtPurchase) : null;
+                              const selectedOptions: { groupName: string; selectedValue: string; priceModifier: number }[] = item.selectedOptions || [];
+                              const optionsExtraCost = Number(item.optionsExtraCost || 0);
 
                               return (
                                 <tr key={item.id} className="border-t border-gray-50 hover:bg-gray-50">
                                   <td className="px-3 py-2">
                                     <div className="flex items-center gap-2">
                                       {item.productImageUrl && <img src={item.productImageUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
-                                      <span className="font-medium text-gray-800">{item.productNameHe}</span>
+                                      <div>
+                                        <span className="font-medium text-gray-800">{item.productNameHe || item.productNameAr}</span>
+                                        {selectedOptions.length > 0 && (
+                                          <div className="flex flex-wrap gap-1 mt-0.5">
+                                            {selectedOptions.map((opt, oi) => (
+                                              <span key={oi} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
+                                                {opt.groupName}: {opt.selectedValue}{opt.priceModifier > 0 ? ` (+₪${opt.priceModifier})` : ''}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </td>
                                   <td className="px-3 py-2">
-                                    {colorInfo ? (
-                                      <div className="flex items-center gap-1.5">
-                                        <span
-                                          className="inline-block rounded"
-                                          style={{
-                                            width: 14,
-                                            height: 14,
-                                            backgroundColor: colorInfo.hex,
-                                            border: colorInfo.hex === '#FFFFFF' || colorInfo.hex === '#E5D3B3'
-                                              ? '1px solid #d1d5db'
-                                              : '1px solid rgba(0,0,0,0.15)',
-                                          }}
-                                        />
-                                        <span className="text-gray-700">{colorInfo.nameHe}</span>
-                                      </div>
+                                    {selectedOptions.length > 0 ? (
+                                      <span className="text-xs text-blue-600">{selectedOptions.length} אפשרויות</span>
                                     ) : (
                                       <span className="text-gray-300">—</span>
                                     )}

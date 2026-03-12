@@ -9,13 +9,22 @@ interface User {
   role: 'customer' | 'admin';
 }
 
-interface CartItem {
+export interface SelectedOption {
+  groupName: string;
+  selectedValue: string;
+  priceModifier: number;
+}
+
+export interface CartItem {
   productId: string;
   name: string;
-  price: number;
+  price: number; // base price + options extra cost
+  basePrice: number; // original base price
   quantity: number;
   image?: string;
   selectedColor?: string | null;
+  selectedOptions?: SelectedOption[];
+  optionsExtraCost?: number;
 }
 
 interface AuthStore {
@@ -31,11 +40,16 @@ interface AuthStore {
 interface CartStore {
   items: CartItem[];
   addItem: (item: CartItem) => void;
-  removeItem: (productId: string) => void;
-  updateQty: (productId: string, quantity: number) => void;
+  removeItem: (productId: string, selectedOptions?: SelectedOption[]) => void;
+  updateQty: (productId: string, quantity: number, selectedOptions?: SelectedOption[]) => void;
   clearCart: () => void;
   total: () => number;
   count: () => number;
+}
+
+function optionsKey(opts?: SelectedOption[]): string {
+  if (!opts || opts.length === 0) return '';
+  return opts.map(o => `${o.groupName}:${o.selectedValue}`).join('|');
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -71,14 +85,14 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
       addItem: (item) => {
-        // For items with colors, treat same product + same color as same cart entry
+        const key = optionsKey(item.selectedOptions);
         const existing = get().items.find(
-          (i) => i.productId === item.productId && i.selectedColor === item.selectedColor
+          (i) => i.productId === item.productId && optionsKey(i.selectedOptions) === key
         );
         if (existing) {
           set({
             items: get().items.map((i) =>
-              i.productId === item.productId && i.selectedColor === item.selectedColor
+              i.productId === item.productId && optionsKey(i.selectedOptions) === key
                 ? { ...i, quantity: i.quantity + item.quantity }
                 : i
             ),
@@ -87,15 +101,28 @@ export const useCartStore = create<CartStore>()(
           set({ items: [...get().items, item] });
         }
       },
-      removeItem: (productId) =>
-        set({ items: get().items.filter((i) => i.productId !== productId) }),
-      updateQty: (productId, quantity) => {
+      removeItem: (productId, selectedOptions) => {
+        const key = optionsKey(selectedOptions);
+        set({
+          items: get().items.filter(
+            (i) => !(i.productId === productId && optionsKey(i.selectedOptions) === key)
+          ),
+        });
+      },
+      updateQty: (productId, quantity, selectedOptions) => {
+        const key = optionsKey(selectedOptions);
         if (quantity <= 0) {
-          set({ items: get().items.filter((i) => i.productId !== productId) });
+          set({
+            items: get().items.filter(
+              (i) => !(i.productId === productId && optionsKey(i.selectedOptions) === key)
+            ),
+          });
         } else {
           set({
             items: get().items.map((i) =>
-              i.productId === productId ? { ...i, quantity } : i
+              i.productId === productId && optionsKey(i.selectedOptions) === key
+                ? { ...i, quantity }
+                : i
             ),
           });
         }

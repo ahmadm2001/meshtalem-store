@@ -27,7 +27,7 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <StoreLayout>
-        <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <div className="max-w-2xl mx-auto px-4 py-16 text-center" dir="rtl">
           <ShoppingCart className="w-20 h-20 mx-auto mb-4 text-gray-300" />
           <h2 className="text-xl font-bold text-gray-700 mb-2">העגלה שלך ריקה</h2>
           <p className="text-gray-500 mb-6">הוסף מוצרים כדי להתחיל לקנות</p>
@@ -41,15 +41,15 @@ export default function CartPage() {
 
   return (
     <StoreLayout>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" dir="rtl">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">עגלת קניות</h1>
           <button onClick={clearCart} className="text-sm text-red-500 hover:text-red-700 transition-colors">נקה עגלה</button>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-3">
-            {items.map((item) => (
-              <div key={item.productId} className="card flex items-center gap-4">
+            {items.map((item, idx) => (
+              <div key={`${item.productId}-${idx}`} className="card flex items-start gap-4">
                 <div className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                   {item.image ? (
                     <Image src={item.image} alt={item.name} fill className="object-cover" unoptimized />
@@ -60,18 +60,36 @@ export default function CartPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-gray-900 text-sm truncate">{item.name}</h3>
-                  <p className="text-primary-600 font-bold mt-1">&#8362;{item.price.toFixed(2)}</p>
+                  <h3 className="font-medium text-gray-900 text-sm">{item.name}</h3>
+                  {/* Selected options display */}
+                  {item.selectedOptions && item.selectedOptions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {item.selectedOptions.map((opt, oi) => (
+                        <span key={oi} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
+                          {opt.groupName}: {opt.selectedValue}
+                          {opt.priceModifier > 0 && ` (+₪${opt.priceModifier})`}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-primary-600 font-bold mt-1">
+                    ₪{item.price.toFixed(2)}
+                    {item.optionsExtraCost && item.optionsExtraCost > 0 && (
+                      <span className="text-xs text-gray-400 font-normal mr-1">
+                        (בסיס ₪{(item.basePrice || item.price - item.optionsExtraCost).toFixed(2)} + תוספת ₪{item.optionsExtraCost.toFixed(2)})
+                      </span>
+                    )}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                    <button onClick={() => updateQty(item.productId, item.quantity - 1)} className="px-2 py-1.5 hover:bg-gray-50 transition-colors"><Minus className="w-3 h-3" /></button>
+                    <button onClick={() => updateQty(item.productId, item.quantity - 1, item.selectedOptions)} className="px-2 py-1.5 hover:bg-gray-50 transition-colors"><Minus className="w-3 h-3" /></button>
                     <span className="px-3 py-1.5 text-sm font-medium">{item.quantity}</span>
-                    <button onClick={() => updateQty(item.productId, item.quantity + 1)} className="px-2 py-1.5 hover:bg-gray-50 transition-colors"><Plus className="w-3 h-3" /></button>
+                    <button onClick={() => updateQty(item.productId, item.quantity + 1, item.selectedOptions)} className="px-2 py-1.5 hover:bg-gray-50 transition-colors"><Plus className="w-3 h-3" /></button>
                   </div>
-                  <button onClick={() => removeItem(item.productId)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => removeItem(item.productId, item.selectedOptions)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </div>
-                <div className="text-sm font-bold text-gray-900 w-20 text-left">&#8362;{(item.price * item.quantity).toFixed(2)}</div>
+                <div className="text-sm font-bold text-gray-900 w-20 text-left shrink-0">₪{(item.price * item.quantity).toFixed(2)}</div>
               </div>
             ))}
           </div>
@@ -79,19 +97,19 @@ export default function CartPage() {
             <div className="card sticky top-24">
               <h2 className="font-bold text-gray-900 mb-4">סיכום הזמנה</h2>
               <div className="space-y-2 mb-4">
-                {items.map((item) => (
-                  <div key={item.productId} className="flex justify-between text-sm text-gray-600">
+                {items.map((item, idx) => (
+                  <div key={`${item.productId}-${idx}`} className="flex justify-between text-sm text-gray-600">
                     <span>{item.name} x{item.quantity}</span>
-                    <span>&#8362;{(item.price * item.quantity).toFixed(2)}</span>
+                    <span>₪{(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
               <div className="border-t border-gray-100 pt-3 mb-4">
                 <div className="flex justify-between font-bold text-gray-900">
-                  <span>סה&quot;כ</span>
-                  <span className="text-primary-600 text-lg">&#8362;{total().toFixed(2)}</span>
+                  <span>סה"כ</span>
+                  <span className="text-primary-600 text-lg">₪{total().toFixed(2)}</span>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">+ &#8362;25 משלוח עד הבית</p>
+                <p className="text-xs text-gray-400 mt-1">+ ₪25 משלוח עד הבית</p>
               </div>
               <button onClick={() => router.push('/checkout')} className="btn-primary w-full text-center block py-3">
                 המשך לתשלום

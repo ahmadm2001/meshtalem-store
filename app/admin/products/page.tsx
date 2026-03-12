@@ -63,12 +63,10 @@ export default function AdminProductsPage() {
   const approve = async (id: string) => {
     try {
       // Show loading toast while translating
-      const toastId = toast.loading('מתרגם אוטומטית...');
       await productsApi.approve(id);
-      toast.dismiss(toastId);
       setProducts((p) => p.filter((x) => x.id !== id));
       setPreviewProduct(null);
-      toast.success('✅ מוצר אושר ותורגם לעברית אוטומטית');
+      toast.success('✅ מוצר אושר ופורסם בחנות');
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'שגיאה באישור המוצר';
       toast.error(`שגיאה: ${msg}`);
@@ -333,9 +331,6 @@ export default function AdminProductsPage() {
               <div className="space-y-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">{previewProduct.nameHe || previewProduct.nameAr}</h1>
-                  {previewProduct.nameAr && previewProduct.nameHe && (
-                    <p className="text-sm text-gray-400 mt-1" dir="rtl">{previewProduct.nameAr}</p>
-                  )}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -352,10 +347,31 @@ export default function AdminProductsPage() {
                   </div>
                 )}
 
-                {previewProduct.descriptionAr && (
+                {!previewProduct.descriptionHe && previewProduct.descriptionAr && (
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <h3 className="font-semibold text-gray-700 mb-1 text-sm">التوصيف الأصلي (ערבית)</h3>
+                    <h3 className="font-semibold text-gray-700 mb-1 text-sm">תיאור המוצר</h3>
                     <p className="text-gray-600 text-sm leading-relaxed" dir="rtl">{previewProduct.descriptionAr}</p>
+                  </div>
+                )}
+
+                {/* Product Options Preview */}
+                {previewProduct.productOptions && previewProduct.productOptions.length > 0 && (
+                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <h3 className="font-semibold text-blue-800 mb-3 text-sm">אפשרויות המוצר</h3>
+                    <div className="space-y-3">
+                      {previewProduct.productOptions.map((group: any, gi: number) => (
+                        <div key={gi}>
+                          <p className="text-xs font-semibold text-blue-700 mb-1">{group.name}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {group.values.map((val: any, vi: number) => (
+                              <span key={vi} className="text-xs bg-white border border-blue-200 text-blue-700 px-2 py-1 rounded-lg">
+                                {val.label}{val.priceModifier > 0 ? ` (+₪${val.priceModifier})` : ''}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -415,26 +431,14 @@ export default function AdminProductsPage() {
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">שם עברי</label>
-                  <input value={editForm.nameHe} onChange={(e) => setEditForm({ ...editForm, nameHe: e.target.value })}
-                    className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">שם ערבי</label>
-                  <input value={editForm.nameAr} onChange={(e) => setEditForm({ ...editForm, nameAr: e.target.value })}
-                    className="input-field" dir="rtl" />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">שם המוצר</label>
+                <input value={editForm.nameHe} onChange={(e) => setEditForm({ ...editForm, nameHe: e.target.value })}
+                  className="input-field" dir="rtl" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">תיאור עברי</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">תיאור המוצר</label>
                 <textarea value={editForm.descriptionHe} onChange={(e) => setEditForm({ ...editForm, descriptionHe: e.target.value })}
-                  className="input-field" rows={3} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">תיאור ערבי</label>
-                <textarea value={editForm.descriptionAr} onChange={(e) => setEditForm({ ...editForm, descriptionAr: e.target.value })}
                   className="input-field" rows={3} dir="rtl" />
               </div>
               <div className="grid grid-cols-2 gap-4">
