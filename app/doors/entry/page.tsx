@@ -2,11 +2,10 @@
 import { useEffect, useState, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { DoorOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DoorOpen, ChevronLeft } from 'lucide-react';
 import { productsApi } from '@/lib/api';
 import StoreLayout from '@/components/layout/StoreLayout';
-import DoorCategoryNav from '@/components/home/DoorCategoryNav';
-import DoorTypeBar, { DoorTypeId } from '@/components/home/DoorTypeBar';
+import CategoryHeader, { DoorTypeId } from '@/components/home/CategoryHeader';
 
 const ENTRY_CATEGORY_ID = '754af081-fa31-423b-adf9-3171140928ea';
 
@@ -17,24 +16,16 @@ const SUBCATEGORIES = [
   { id: '6f7bd14f-aed8-416d-a737-2f737dc5756d', nameHe: 'חלונות וסורגים' },
 ];
 
-/** Returns the best image for a product given the selected door type */
 function getProductImage(product: any, doorType: DoorTypeId): string | null {
-  if (doorType === 'all') {
-    return product.images?.[0] || null;
-  }
+  if (doorType === 'all') return product.images?.[0] || null;
   const variants: any[] = product.doorVariants || [];
-  const variant = variants.find((v) => v.id === doorType);
-  // If variant exists and has an image — use it
-  if (variant?.image) return variant.image;
-  // Otherwise fall back to the product's default image
-  return product.images?.[0] || null;
+  const variant = variants.find((v: any) => v.id === doorType);
+  return variant?.image || product.images?.[0] || null;
 }
 
-/** Returns true if the product supports the selected door type */
 function productHasDoorType(product: any, doorType: DoorTypeId): boolean {
   if (doorType === 'all') return true;
-  const variants: any[] = product.doorVariants || [];
-  return variants.some((v) => v.id === doorType);
+  return (product.doorVariants || []).some((v: any) => v.id === doorType);
 }
 
 function EntryDoorsContent() {
@@ -43,54 +34,40 @@ function EntryDoorsContent() {
   const [activeSubcat, setActiveSubcat] = useState('all');
   const [activeDoorType, setActiveDoorType] = useState<DoorTypeId>('all');
 
-  const activeLabel = activeSubcat === 'all'
-    ? null
-    : SUBCATEGORIES.find((s) => s.id === activeSubcat)?.nameHe;
+  const activeSubcatLabel = SUBCATEGORIES.find((s) => s.id === activeSubcat)?.nameHe;
 
   useEffect(() => {
     setLoading(true);
-    const categoryId = activeSubcat === 'all' ? ENTRY_CATEGORY_ID : activeSubcat;
-    productsApi.getPublic({ categoryId, limit: 40 })
+    // Always fetch by main category — backend now includes subcategory products
+    // When a subcategory is selected, filter client-side from the full set
+    productsApi.getPublic({ categoryId: ENTRY_CATEGORY_ID, limit: 60 })
       .then((r) => setProducts(r.data?.products || r.data || []))
       .finally(() => setLoading(false));
-  }, [activeSubcat]);
+  }, []); // Only fetch once — all products for this main category
 
-  // Filter products by door type (client-side — only show products that have this variant)
-  const filteredProducts = activeDoorType === 'all'
+  // Client-side subcategory filter
+  const subcatFiltered = activeSubcat === 'all'
     ? products
-    : products.filter((p) => productHasDoorType(p, activeDoorType));
+    : products.filter((p) => p.category?.id === activeSubcat);
+
+  // Client-side door type filter
+  const filteredProducts = activeDoorType === 'all'
+    ? subcatFiltered
+    : subcatFiltered.filter((p) => productHasDoorType(p, activeDoorType));
 
   return (
     <StoreLayout>
-      {/* Category Nav with door icons */}
-      <DoorCategoryNav
-        categories={SUBCATEGORIES}
-        active={activeSubcat}
-        onChange={(id) => { setActiveSubcat(id); setActiveDoorType('all'); }}
-        allLabel="כל הדלתות"
+      <CategoryHeader
+        mainCategoryId="entry"
+        mainCategoryName="דלתות כניסה"
+        subcategories={SUBCATEGORIES}
+        activeSubcat={activeSubcat}
+        onSubcatChange={(id) => { setActiveSubcat(id); setActiveDoorType('all'); }}
+        activeDoorType={activeDoorType}
+        onDoorTypeChange={setActiveDoorType}
+        breadcrumbLabel={activeSubcatLabel}
       />
 
-      {/* Door type filter bar */}
-      <DoorTypeBar active={activeDoorType} onChange={setActiveDoorType} />
-
-      {/* Breadcrumb */}
-      <div className="bg-gray-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
-          <nav className="flex items-center gap-1.5 text-sm text-gray-500">
-            <Link href="/" className="hover:text-primary-700 transition-colors">ראשי</Link>
-            <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-            <Link href="/doors/entry" className="hover:text-primary-700 transition-colors">דלתות כניסה</Link>
-            {activeLabel && (
-              <>
-                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                <span className="text-gray-800 font-semibold">{activeLabel}</span>
-              </>
-            )}
-          </nav>
-        </div>
-      </div>
-
-      {/* Products */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -109,9 +86,7 @@ function EntryDoorsContent() {
           <div className="text-center py-20">
             <DoorOpen className="w-14 h-14 mx-auto text-gray-200 mb-4" />
             <p className="text-gray-500 font-semibold text-lg mb-2">
-              {activeDoorType !== 'all'
-                ? 'אין דגמים עם סוג דלת זה בקטגוריה זו'
-                : 'אין דגמים בקטגוריה זו עדיין'}
+              {activeDoorType !== 'all' ? 'אין דגמים עם סוג דלת זה' : 'אין דגמים בקטגוריה זו עדיין'}
             </p>
             <button
               onClick={() => { setActiveSubcat('all'); setActiveDoorType('all'); }}
@@ -127,18 +102,16 @@ function EntryDoorsContent() {
               {filteredProducts.map((product) => {
                 const price = Number(product.customerPrice || product.baseEstimatedPrice || 0);
                 const displayImage = getProductImage(product, activeDoorType);
-
                 return (
                   <div
                     key={product.id}
                     className="bg-white rounded-2xl overflow-hidden shadow-card border border-gray-100 hover:shadow-premium hover:-translate-y-0.5 transition-all duration-200 group flex flex-col"
                   >
                     <Link href={`/products/${product.id}`} className="block">
-                      {/* Image — changes based on selected door type */}
                       <div className="relative h-56 bg-slate-100 overflow-hidden">
                         {displayImage ? (
                           <Image
-                            key={displayImage} // force re-render on image change
+                            key={displayImage}
                             src={displayImage}
                             alt={product.nameHe || ''}
                             fill
@@ -155,7 +128,6 @@ function EntryDoorsContent() {
                             {product.category.nameHe}
                           </div>
                         )}
-                        {/* Variant badge */}
                         {activeDoorType !== 'all' && (
                           <div className="absolute bottom-3 left-3 bg-primary-700/90 text-white text-xs font-bold px-2.5 py-1 rounded-full">
                             {activeDoorType === 'single' ? 'דלת' : activeDoorType === 'single_half' ? 'דלת וחצי' : 'דלת כפולה'}
