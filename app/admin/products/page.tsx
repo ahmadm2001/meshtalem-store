@@ -23,13 +23,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const WARRANTY_OPTIONS = [
-  { value: 'none',    label: 'ללא אחריות' },
-  { value: '6months', label: '6 חודשים' },
-  { value: '1year',   label: 'שנה אחת' },
-  { value: '2years',  label: 'שנתיים' },
-  { value: '3years',  label: '3 שנים' },
-  { value: '5years',  label: '5 שנים' },
-  { value: '10years', label: '10 שנים' },
+  { value: 'none',      label: 'ללא אחריות' },
+  { value: '6_months',  label: '6 חודשים' },
+  { value: '1_year',    label: 'שנה אחת' },
+  { value: '2_years',   label: 'שנתיים' },
+  { value: '3_years',   label: '3 שנים' },
+  { value: '5_years',   label: '5 שנים' },
 ];
 
 const MANUFACTURING_TIME_OPTIONS = [
