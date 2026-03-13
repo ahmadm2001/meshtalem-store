@@ -88,6 +88,257 @@ const emptyCreateForm = () => ({
   doorVariants: emptyDoorVariants(),
 });
 
+// ─── TabBar ──────────────────────────────────────────────────────────────────
+
+function TabBar({
+  active, onChange, optionsCount, imagesCount
+}: { active: string; onChange: (t: any) => void; optionsCount: number; imagesCount: number }) {
+  return (
+    <div className="flex border-b mb-4">
+      {[
+        { key: 'basic',   label: 'פרטי הדגם' },
+        { key: 'options', label: `קונפיגורטור${optionsCount > 0 ? ` (${optionsCount})` : ''}` },
+        { key: 'images',  label: `תמונות${imagesCount > 0 ? ` (${imagesCount})` : ''}` },
+      ].map((tab) => (
+        <button key={tab.key} type="button"
+          onClick={() => onChange(tab.key)}
+          className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            active === tab.key ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}>
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── DoorVariantsSection ──────────────────────────────────────────────────────
+
+function DoorVariantsSection({
+  variants, onChange
+}: { variants: DoorVariantForm[]; onChange: (v: DoorVariantForm[]) => void }) {
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+
+  const handleVariantImageUpload = async (file: File, i: number) => {
+    setUploadingIdx(i);
+    try {
+      const { uploadsApi } = await import('@/lib/api');
+      const url = await uploadsApi.uploadImage(file);
+      const updated = [...variants];
+      updated[i] = { ...updated[i], image: url };
+      onChange(updated);
+    } catch {
+      toast.error('שגיאה בהעלאת התמונה');
+    } finally {
+      setUploadingIdx(null);
+    }
+  };
+
+  return (
+    <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+      <h3 className="text-sm font-bold text-amber-900 mb-1 flex items-center gap-2">
+        <DoorOpen className="w-4 h-4" /> סוגי הדלת ומחירי בסיס
+      </h3>
+      <p className="text-xs text-amber-700 mb-4">
+        הגדר מחיר בסיס ותמונה לכל סוג דלת. הלקוח יבחר את הסוג כשלב ראשון בקונפיגורטור.
+      </p>
+      <div className="space-y-4">
+        {DOOR_VARIANT_DEFS.map((def, i) => {
+          const v = variants[i] ?? { id: def.id, label: def.label, basePrice: '', image: '' };
+          const isUploading = uploadingIdx === i;
+          return (
+            <div key={def.id} className="bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
+                  <DoorOpen className="w-5 h-5 text-amber-700" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-gray-800">{def.label}</p>
+                  <p className="text-xs text-gray-400">
+                    {def.id === 'single' ? 'דלת בודדת סטנדרטית' :
+                     def.id === 'single_half' ? 'דלת בודדת + חצי פנל קבוע' :
+                     'שתי דלתות סימטריות'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-sm text-gray-500 font-medium">₪</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={v.basePrice}
+                    onChange={(e) => {
+                      const updated = [...variants];
+                      updated[i] = { ...v, basePrice: e.target.value };
+                      onChange(updated);
+                    }}
+                    placeholder="מחיר"
+                    className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm text-left focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                  {v.image ? (
+                    <img src={v.image} alt={def.label} className="w-full h-full object-cover rounded-lg" />
+                  ) : (
+                    <DoorOpen className="w-6 h-6 text-gray-300" />
+                  )}
+                </div>
+                <div className="flex-1 flex flex-col gap-1.5">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleVariantImageUpload(file, i);
+                        e.target.value = '';
+                      }}
+                    />
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      isUploading
+                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                        : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
+                    }`}>
+                      {isUploading ? (
+                        <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                      {isUploading ? 'מעלה...' : 'העלה תמונה'}
+                    </span>
+                  </label>
+                  {v.image ? (
+                    <button type="button"
+                      onClick={() => { const u = [...variants]; u[i] = { ...v, image: '' }; onChange(u); }}
+                      className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600">
+                      <X className="w-3 h-3" /> הסר תמונה
+                    </button>
+                  ) : (
+                    <p className="text-xs text-gray-400">ללא תמונה — יוצג אייקון ברירת מחדל</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-amber-600 mt-3 bg-amber-100 rounded-lg px-3 py-2">
+        💡 השאר ריק אם סוג דלת זה אינו זמין בדגם זה. רק סוגים עם מחיר יוצגו ללקוח.
+      </p>
+    </div>
+  );
+}
+
+// ─── DoorBasicFields ──────────────────────────────────────────────────────────
+
+function DoorBasicFields({
+  form, setForm, isCreate = false, categories
+}: { form: any; setForm: (f: any) => void; isCreate?: boolean; categories: any[] }) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">
+          שם דגם הדלת <span className="text-red-500">*</span>
+        </label>
+        <input
+          value={isCreate ? form.name : form.nameHe}
+          onChange={(e) => setForm(isCreate
+            ? { ...form, name: e.target.value }
+            : { ...form, nameHe: e.target.value }
+          )}
+          placeholder="לדוגמה: דלת כניסה פרמיום TITAN 900"
+          className="input-field" dir="rtl"
+        />
+        <p className="text-xs text-gray-400 mt-1">שם הדגם שיוצג ללקוחות בחנות</p>
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">תיאור הדגם</label>
+        <textarea
+          value={isCreate ? form.description : form.descriptionHe}
+          onChange={(e) => setForm(isCreate
+            ? { ...form, description: e.target.value }
+            : { ...form, descriptionHe: e.target.value }
+          )}
+          placeholder="תיאור מפורט של הדלת — חומרים, עיצוב, תכונות בטיחות..."
+          className="input-field" rows={3} dir="rtl"
+        />
+      </div>
+      <DoorVariantsSection
+        variants={form.doorVariants || emptyDoorVariants()}
+        onChange={(v) => setForm({ ...form, doorVariants: v })}
+      />
+      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+        <h3 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+          <Banknote className="w-4 h-4" /> תמחור
+        </h3>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">דמי מקדמה (₪)</label>
+          <input type="number" min={0}
+            value={form.depositAmount}
+            onChange={(e) => setForm({ ...form, depositAmount: e.target.value })}
+            placeholder="0"
+            className="input-field max-w-xs"
+          />
+          <p className="text-xs text-gray-400 mt-1">סכום שהלקוח משלם בהזמנה</p>
+        </div>
+      </div>
+      <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <Wrench className="w-4 h-4" /> ייצור ואחריות
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">זמן ייצור</label>
+            <select
+              value={form.manufacturingTime}
+              onChange={(e) => setForm({ ...form, manufacturingTime: e.target.value })}
+              className="input-field text-sm"
+            >
+              {MANUFACTURING_TIME_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">אחריות</label>
+            <select
+              value={form.warranty}
+              onChange={(e) => setForm({ ...form, warranty: e.target.value })}
+              className="input-field text-sm"
+            >
+              {WARRANTY_OPTIONS.map((w) => (
+                <option key={w.value} value={w.value}>{w.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+      {categories.length > 0 && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">קטגוריה</label>
+          <select
+            value={form.categoryId}
+            onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+            className="input-field"
+          >
+            <option value="">— ללא קטגוריה —</option>
+            {categories.map((c: any) => (
+              <option key={c.id} value={c.id}>{c.nameHe || c.nameAr}</option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminProductsPage() {
@@ -299,269 +550,6 @@ export default function AdminProductsPage() {
   const filtered = products.filter((p) => {
     return (p.nameHe || p.nameAr || '').toLowerCase().includes(search.toLowerCase());
   });
-
-  // ── Tab component helper ──────────────────────────────────────────────────────
-
-  const TabBar = ({
-    active, onChange, optionsCount, imagesCount
-  }: { active: string; onChange: (t: any) => void; optionsCount: number; imagesCount: number }) => (
-    <div className="flex border-b mb-4">
-      {[
-        { key: 'basic',   label: 'פרטי הדגם' },
-        { key: 'options', label: `קונפיגורטור${optionsCount > 0 ? ` (${optionsCount})` : ''}` },
-        { key: 'images',  label: `תמונות${imagesCount > 0 ? ` (${imagesCount})` : ''}` },
-      ].map((tab) => (
-        <button key={tab.key} type="button"
-          onClick={() => onChange(tab.key)}
-          className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${active === tab.key ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  );
-
-  // ── Door Variants Section ─────────────────────────────────────────────────────
-
-  const DoorVariantsSection = ({
-    variants, onChange
-  }: { variants: DoorVariantForm[]; onChange: (v: DoorVariantForm[]) => void }) => {
-    const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
-
-    const handleVariantImageUpload = async (file: File, i: number) => {
-      setUploadingIdx(i);
-      try {
-        const { uploadsApi } = await import('@/lib/api');
-        const url = await uploadsApi.uploadImage(file);
-        const updated = [...variants];
-        updated[i] = { ...updated[i], image: url };
-        onChange(updated);
-      } catch {
-        toast.error('שגיאה בהעלאת התמונה');
-      } finally {
-        setUploadingIdx(null);
-      }
-    };
-
-    return (
-      <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-        <h3 className="text-sm font-bold text-amber-900 mb-1 flex items-center gap-2">
-          <DoorOpen className="w-4 h-4" /> סוגי הדלת ומחירי בסיס
-        </h3>
-        <p className="text-xs text-amber-700 mb-4">
-          הגדר מחיר בסיס ותמונה לכל סוג דלת. הלקוח יבחר את הסוג כשלב ראשון בקונפיגורטור.
-        </p>
-        <div className="space-y-4">
-          {DOOR_VARIANT_DEFS.map((def, i) => {
-            const v = variants[i] ?? { id: def.id, label: def.label, basePrice: '', image: '' };
-            const isUploading = uploadingIdx === i;
-            return (
-              <div key={def.id} className="bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
-                {/* Row 1: icon + label + price */}
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                    <DoorOpen className="w-5 h-5 text-amber-700" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-800">{def.label}</p>
-                    <p className="text-xs text-gray-400">
-                      {def.id === 'single' ? 'דלת בודדת סטנדרטית' :
-                       def.id === 'single_half' ? 'דלת בודדת + חצי פנל קבוע' :
-                       'שתי דלתות סימטריות'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-sm text-gray-500 font-medium">₪</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={v.basePrice}
-                      onChange={(e) => {
-                        const updated = [...variants];
-                        updated[i] = { ...v, basePrice: e.target.value };
-                        onChange(updated);
-                      }}
-                      placeholder="מחיר"
-                      className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm text-left focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none"
-                      dir="ltr"
-                    />
-                  </div>
-                </div>
-
-                {/* Row 2: image upload */}
-                <div className="flex items-center gap-3">
-                  {/* Thumbnail */}
-                  <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
-                    {v.image ? (
-                      <img src={v.image} alt={def.label} className="w-full h-full object-cover rounded-lg" />
-                    ) : (
-                      <DoorOpen className="w-6 h-6 text-gray-300" />
-                    )}
-                  </div>
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleVariantImageUpload(file, i);
-                          e.target.value = '';
-                        }}
-                      />
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                        isUploading
-                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                          : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
-                      }`}>
-                        {isUploading ? (
-                          <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" /></svg>
-                        ) : (
-                          <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
-                        )}
-                        {isUploading ? 'מעלה...' : 'העלה תמונה'}
-                      </span>
-                    </label>
-                    {v.image ? (
-                      <button type="button" onClick={() => { const u=[...variants]; u[i]={...v,image:''}; onChange(u); }}
-                        className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600">
-                        <X className="w-3 h-3" /> הסר תמונה
-                      </button>
-                    ) : (
-                      <p className="text-xs text-gray-400">ללא תמונה — יוצג איקון ברירת מחדל</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-xs text-amber-600 mt-3 bg-amber-100 rounded-lg px-3 py-2">
-          💡 השאר ריק אם סוג דלת זה אינו זמין בדגם זה. רק סוגים עם מחיר יוצגו ללקוח.
-        </p>
-      </div>
-    );
-  };
-
-  // ── Door basic fields shared between create & edit ────────────────────────────
-
-  const DoorBasicFields = ({
-    form, setForm, isCreate = false
-  }: { form: any; setForm: (f: any) => void; isCreate?: boolean }) => (
-    <div className="space-y-5">
-      {/* Model name */}
-      <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">
-          שם דגם הדלת <span className="text-red-500">*</span>
-        </label>
-        <input
-          value={isCreate ? form.name : form.nameHe}
-          onChange={(e) => setForm(isCreate
-            ? { ...form, name: e.target.value }
-            : { ...form, nameHe: e.target.value }
-          )}
-          placeholder="לדוגמה: דלת כניסה פרמיום TITAN 900"
-          className="input-field" dir="rtl"
-        />
-        <p className="text-xs text-gray-400 mt-1">שם הדגם שיוצג ללקוחות בחנות</p>
-      </div>
-
-      {/* Description */}
-      <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">תיאור הדגם</label>
-        <textarea
-          value={isCreate ? form.description : form.descriptionHe}
-          onChange={(e) => setForm(isCreate
-            ? { ...form, description: e.target.value }
-            : { ...form, descriptionHe: e.target.value }
-          )}
-          placeholder="תיאור מפורט של הדלת — חומרים, עיצוב, תכונות בטיחות..."
-          className="input-field" rows={3} dir="rtl"
-        />
-      </div>
-
-      {/* ── Door Variants (built-in step 1) ── */}
-      <DoorVariantsSection
-        variants={form.doorVariants || emptyDoorVariants()}
-        onChange={(v) => setForm({ ...form, doorVariants: v })}
-      />
-
-      {/* Deposit */}
-      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-        <h3 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
-          <Banknote className="w-4 h-4" /> תמחור
-        </h3>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            דמי מקדמה (₪)
-          </label>
-          <input type="number" min={0}
-            value={form.depositAmount}
-            onChange={(e) => setForm({ ...form, depositAmount: e.target.value })}
-            placeholder="0"
-            className="input-field max-w-xs"
-          />
-          <p className="text-xs text-gray-400 mt-1">סכום שהלקוח משלם בהזמנה</p>
-        </div>
-      </div>
-
-      {/* Manufacturing & warranty */}
-      <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-          <Wrench className="w-4 h-4" /> ייצור ואחריות
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              זמן ייצור
-            </label>
-            <select
-              value={form.manufacturingTime}
-              onChange={(e) => setForm({ ...form, manufacturingTime: e.target.value })}
-              className="input-field text-sm"
-            >
-              {MANUFACTURING_TIME_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              אחריות
-            </label>
-            <select
-              value={form.warranty}
-              onChange={(e) => setForm({ ...form, warranty: e.target.value })}
-              className="input-field text-sm"
-            >
-              {WARRANTY_OPTIONS.map((w) => (
-                <option key={w.value} value={w.value}>{w.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Category */}
-      {categories.length > 0 && (
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">קטגוריה</label>
-          <select
-            value={form.categoryId}
-            onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-            className="input-field"
-          >
-            <option value="">— ללא קטגוריה —</option>
-            {categories.map((c: any) => (
-              <option key={c.id} value={c.id}>{c.nameHe || c.nameAr}</option>
-            ))}
-          </select>
-        </div>
-      )}
-    </div>
-  );
-
-  // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -754,7 +742,7 @@ export default function AdminProductsPage() {
 
               {/* Basic Tab */}
               {createTab === 'basic' && (
-                <DoorBasicFields form={createForm} setForm={setCreateForm} isCreate={true} />
+                <DoorBasicFields form={createForm} setForm={setCreateForm} isCreate={true} categories={categories} />
               )}
 
               {/* Options Tab */}
@@ -1002,7 +990,7 @@ export default function AdminProductsPage() {
 
               {/* Basic Tab */}
               {editTab === 'basic' && (
-                <DoorBasicFields form={editForm} setForm={setEditForm} isCreate={false} />
+                <DoorBasicFields form={editForm} setForm={setEditForm} isCreate={false} categories={categories} />
               )}
 
               {/* Options Tab */}
