@@ -1,19 +1,18 @@
 'use client';
 import { useEffect, useState, Suspense } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { DoorOpen, ChevronLeft } from 'lucide-react';
+import { DoorOpen } from 'lucide-react';
 import { productsApi } from '@/lib/api';
 import StoreLayout from '@/components/layout/StoreLayout';
 import CategoryHeader, { DoorTypeId } from '@/components/home/CategoryHeader';
+import DoorProductCard from '@/components/home/DoorProductCard';
 
 // All category IDs that belong to "דלתות כניסה" (parent + all subcategories)
 const ENTRY_ALL_IDS = new Set([
-  '754af081-fa31-423b-adf9-3171140928ea', // דלתות כניסה (parent)
-  'a7ce1f01-94b9-4f58-a160-5da058762845', // דלתות חלקות
-  'acecba77-5476-4769-8e80-4a4715d1f496', // חיפויי עץ/ פורניר ופורמייקה
-  '94033109-9968-437e-b891-083d7f9c1645', // אלמנטים דקורטיביים
-  '6f7bd14f-aed8-416d-a737-2f737dc5756d', // חלונות וסורגים
+  '754af081-fa31-423b-adf9-3171140928ea',
+  'a7ce1f01-94b9-4f58-a160-5da058762845',
+  'acecba77-5476-4769-8e80-4a4715d1f496',
+  '94033109-9968-437e-b891-083d7f9c1645',
+  '6f7bd14f-aed8-416d-a737-2f737dc5756d',
 ]);
 
 const SUBCATEGORIES = [
@@ -45,11 +44,9 @@ function EntryDoorsContent() {
 
   useEffect(() => {
     setLoading(true);
-    // Fetch all products — filter client-side by category
     productsApi.getPublic({ limit: 100 })
       .then((r) => {
         const products = r.data?.products || r.data || [];
-        // Keep only products that belong to entry doors or any of its subcategories
         const entryProducts = products.filter((p: any) => {
           const catId = p.category?.id;
           return catId && ENTRY_ALL_IDS.has(catId);
@@ -59,12 +56,10 @@ function EntryDoorsContent() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Client-side subcategory filter
   const subcatFiltered = activeSubcat === 'all'
     ? allProducts
     : allProducts.filter((p) => p.category?.id === activeSubcat);
 
-  // Client-side door type filter
   const filteredProducts = activeDoorType === 'all'
     ? subcatFiltered
     : subcatFiltered.filter((p) => productHasDoorType(p, activeDoorType));
@@ -82,16 +77,16 @@ function EntryDoorsContent() {
         breadcrumbLabel={activeSubcatLabel}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl overflow-hidden animate-pulse shadow-card">
-                <div className="bg-gray-100 h-56" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="bg-white border border-gray-200 animate-pulse">
+                <div className="h-12 bg-gray-50 m-4" />
+                <div className="bg-gray-100 mx-4" style={{ aspectRatio: '3/4' }} />
                 <div className="p-4 space-y-2">
-                  <div className="h-4 bg-gray-100 rounded-lg" />
-                  <div className="h-4 bg-gray-100 rounded-lg w-2/3" />
-                  <div className="h-9 bg-gray-100 rounded-xl mt-3" />
+                  <div className="h-4 bg-gray-100 rounded" />
+                  <div className="h-6 bg-gray-100 rounded w-1/2" />
                 </div>
               </div>
             ))}
@@ -111,68 +106,16 @@ function EntryDoorsContent() {
           </div>
         ) : (
           <>
-            <p className="text-gray-400 text-sm mb-6">{filteredProducts.length} דגמים</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredProducts.map((product) => {
-                const price = Number(product.customerPrice || product.baseEstimatedPrice || 0);
-                const displayImage = getProductImage(product, activeDoorType);
-                return (
-                  <div
-                    key={product.id}
-                    className="bg-white rounded-2xl overflow-hidden shadow-card border border-gray-100 hover:shadow-premium hover:-translate-y-0.5 transition-all duration-200 group flex flex-col"
-                  >
-                    <Link href={`/products/${product.id}`} className="block">
-                      <div className="relative h-56 bg-slate-100 overflow-hidden">
-                        {displayImage ? (
-                          <Image
-                            key={displayImage}
-                            src={displayImage}
-                            alt={product.nameHe || ''}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-2">
-                            <DoorOpen className="w-14 h-14" />
-                            <span className="text-xs font-medium">Q Door</span>
-                          </div>
-                        )}
-                        {product.category?.nameHe && (
-                          <div className="absolute top-3 right-3 bg-white/90 text-primary-700 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
-                            {product.category.nameHe}
-                          </div>
-                        )}
-                        {activeDoorType !== 'all' && (
-                          <div className="absolute bottom-3 left-3 bg-primary-700/90 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                            {activeDoorType === 'single' ? 'דלת' : activeDoorType === 'single_half' ? 'דלת וחצי' : 'דלת כפולה'}
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-4 pb-3">
-                        <h3 className="font-bold text-gray-900 text-base mb-1 line-clamp-2">
-                          {product.nameHe || product.nameAr}
-                        </h3>
-                        {product.descriptionHe && (
-                          <p className="text-gray-400 text-xs line-clamp-2 mb-2">{product.descriptionHe}</p>
-                        )}
-                        {price > 0 ? (
-                          <div className="text-xl font-black text-primary-700">₪{price.toLocaleString()}</div>
-                        ) : (
-                          <span className="text-sm text-gray-400">מחיר לפי הצעה</span>
-                        )}
-                      </div>
-                    </Link>
-                    <div className="px-4 pb-4 mt-auto">
-                      <Link
-                        href={`/products/${product.id}`}
-                        className="w-full bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all"
-                      >
-                        הגדרת הדלת <ChevronLeft className="w-4 h-4" />
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
+            <p className="text-gray-400 text-sm mb-5">{filteredProducts.length} דגמים</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredProducts.map((product) => (
+                <DoorProductCard
+                  key={product.id}
+                  product={product}
+                  displayImage={getProductImage(product, activeDoorType)}
+                  activeDoorType={activeDoorType !== 'all' ? activeDoorType : undefined}
+                />
+              ))}
             </div>
           </>
         )}
