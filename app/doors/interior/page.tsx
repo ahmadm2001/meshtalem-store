@@ -6,20 +6,35 @@ import { DoorOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { productsApi, categoriesApi } from '@/lib/api';
 import StoreLayout from '@/components/layout/StoreLayout';
 import DoorCategoryNav from '@/components/home/DoorCategoryNav';
+import DoorTypeBar, { DoorTypeId } from '@/components/home/DoorTypeBar';
 
 const INTERIOR_CATEGORY_ID = '8760bdc1-bfbb-408a-9735-790b6685728e';
+
+function getProductImage(product: any, doorType: DoorTypeId): string | null {
+  if (doorType === 'all') return product.images?.[0] || null;
+  const variants: any[] = product.doorVariants || [];
+  const variant = variants.find((v: any) => v.id === doorType);
+  if (variant?.image) return variant.image;
+  return product.images?.[0] || null;
+}
+
+function productHasDoorType(product: any, doorType: DoorTypeId): boolean {
+  if (doorType === 'all') return true;
+  const variants: any[] = product.doorVariants || [];
+  return variants.some((v: any) => v.id === doorType);
+}
 
 function InteriorDoorsContent() {
   const [products, setProducts] = useState<any[]>([]);
   const [subcategories, setSubcategories] = useState<{ id: string; nameHe: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSubcat, setActiveSubcat] = useState('all');
+  const [activeDoorType, setActiveDoorType] = useState<DoorTypeId>('all');
 
   const activeLabel = activeSubcat === 'all'
     ? null
     : subcategories.find((s) => s.id === activeSubcat)?.nameHe;
 
-  // Load subcategories
   useEffect(() => {
     categoriesApi.getAll().then((r) => {
       const cats = r.data || [];
@@ -28,7 +43,6 @@ function InteriorDoorsContent() {
     });
   }, []);
 
-  // Load products
   useEffect(() => {
     setLoading(true);
     const categoryId = activeSubcat === 'all' ? INTERIOR_CATEGORY_ID : activeSubcat;
@@ -37,15 +51,20 @@ function InteriorDoorsContent() {
       .finally(() => setLoading(false));
   }, [activeSubcat]);
 
+  const filteredProducts = activeDoorType === 'all'
+    ? products
+    : products.filter((p) => productHasDoorType(p, activeDoorType));
+
   return (
     <StoreLayout>
-      {/* Category Nav with door icons */}
       <DoorCategoryNav
         categories={subcategories}
         active={activeSubcat}
-        onChange={setActiveSubcat}
+        onChange={(id) => { setActiveSubcat(id); setActiveDoorType('all'); }}
         allLabel="כל הדלתות"
       />
+
+      <DoorTypeBar active={activeDoorType} onChange={setActiveDoorType} />
 
       {/* Breadcrumb */}
       <div className="bg-gray-50 border-b border-gray-100">
@@ -64,7 +83,6 @@ function InteriorDoorsContent() {
         </div>
       </div>
 
-      {/* Products */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -79,12 +97,16 @@ function InteriorDoorsContent() {
               </div>
             ))}
           </div>
-        ) : products.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20">
             <DoorOpen className="w-14 h-14 mx-auto text-gray-200 mb-4" />
-            <p className="text-gray-500 font-semibold text-lg mb-2">אין דגמים בקטגוריה זו עדיין</p>
+            <p className="text-gray-500 font-semibold text-lg mb-2">
+              {activeDoorType !== 'all'
+                ? 'אין דגמים עם סוג דלת זה בקטגוריה זו'
+                : 'אין דגמים בקטגוריה זו עדיין'}
+            </p>
             <button
-              onClick={() => setActiveSubcat('all')}
+              onClick={() => { setActiveSubcat('all'); setActiveDoorType('all'); }}
               className="text-primary-600 hover:text-primary-700 text-sm font-semibold"
             >
               הצג את כל הדגמים ←
@@ -92,10 +114,11 @@ function InteriorDoorsContent() {
           </div>
         ) : (
           <>
-            <p className="text-gray-400 text-sm mb-6">{products.length} דגמים</p>
+            <p className="text-gray-400 text-sm mb-6">{filteredProducts.length} דגמים</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {products.map((product) => {
+              {filteredProducts.map((product) => {
                 const price = Number(product.customerPrice || product.baseEstimatedPrice || 0);
+                const displayImage = getProductImage(product, activeDoorType);
                 return (
                   <div
                     key={product.id}
@@ -103,9 +126,10 @@ function InteriorDoorsContent() {
                   >
                     <Link href={`/products/${product.id}`} className="block">
                       <div className="relative h-56 bg-slate-100 overflow-hidden">
-                        {product.images?.[0] ? (
+                        {displayImage ? (
                           <Image
-                            src={product.images[0]}
+                            key={displayImage}
+                            src={displayImage}
                             alt={product.nameHe || ''}
                             fill
                             className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -119,6 +143,11 @@ function InteriorDoorsContent() {
                         {product.category?.nameHe && (
                           <div className="absolute top-3 right-3 bg-white/90 text-primary-700 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                             {product.category.nameHe}
+                          </div>
+                        )}
+                        {activeDoorType !== 'all' && (
+                          <div className="absolute bottom-3 left-3 bg-primary-700/90 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                            {activeDoorType === 'single' ? 'דלת' : activeDoorType === 'single_half' ? 'דלת וחצי' : 'דלת כפולה'}
                           </div>
                         )}
                       </div>
