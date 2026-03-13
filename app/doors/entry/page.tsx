@@ -7,7 +7,14 @@ import { productsApi } from '@/lib/api';
 import StoreLayout from '@/components/layout/StoreLayout';
 import CategoryHeader, { DoorTypeId } from '@/components/home/CategoryHeader';
 
-const ENTRY_CATEGORY_ID = '754af081-fa31-423b-adf9-3171140928ea';
+// All category IDs that belong to "דלתות כניסה" (parent + all subcategories)
+const ENTRY_ALL_IDS = new Set([
+  '754af081-fa31-423b-adf9-3171140928ea', // דלתות כניסה (parent)
+  'a7ce1f01-94b9-4f58-a160-5da058762845', // דלתות חלקות
+  'acecba77-5476-4769-8e80-4a4715d1f496', // חיפויי עץ/ פורניר ופורמייקה
+  '94033109-9968-437e-b891-083d7f9c1645', // אלמנטים דקורטיביים
+  '6f7bd14f-aed8-416d-a737-2f737dc5756d', // חלונות וסורגים
+]);
 
 const SUBCATEGORIES = [
   { id: 'a7ce1f01-94b9-4f58-a160-5da058762845', nameHe: 'דלתות חלקות' },
@@ -29,7 +36,7 @@ function productHasDoorType(product: any, doorType: DoorTypeId): boolean {
 }
 
 function EntryDoorsContent() {
-  const [products, setProducts] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSubcat, setActiveSubcat] = useState('all');
   const [activeDoorType, setActiveDoorType] = useState<DoorTypeId>('all');
@@ -38,17 +45,24 @@ function EntryDoorsContent() {
 
   useEffect(() => {
     setLoading(true);
-    // Always fetch by main category — backend now includes subcategory products
-    // When a subcategory is selected, filter client-side from the full set
-    productsApi.getPublic({ categoryId: ENTRY_CATEGORY_ID, limit: 60 })
-      .then((r) => setProducts(r.data?.products || r.data || []))
+    // Fetch all products — filter client-side by category
+    productsApi.getPublic({ limit: 100 })
+      .then((r) => {
+        const products = r.data?.products || r.data || [];
+        // Keep only products that belong to entry doors or any of its subcategories
+        const entryProducts = products.filter((p: any) => {
+          const catId = p.category?.id;
+          return catId && ENTRY_ALL_IDS.has(catId);
+        });
+        setAllProducts(entryProducts);
+      })
       .finally(() => setLoading(false));
-  }, []); // Only fetch once — all products for this main category
+  }, []);
 
   // Client-side subcategory filter
   const subcatFiltered = activeSubcat === 'all'
-    ? products
-    : products.filter((p) => p.category?.id === activeSubcat);
+    ? allProducts
+    : allProducts.filter((p) => p.category?.id === activeSubcat);
 
   // Client-side door type filter
   const filteredProducts = activeDoorType === 'all'

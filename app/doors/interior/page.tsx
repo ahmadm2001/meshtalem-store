@@ -22,8 +22,9 @@ function productHasDoorType(product: any, doorType: DoorTypeId): boolean {
 }
 
 function InteriorDoorsContent() {
-  const [products, setProducts] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
   const [subcategories, setSubcategories] = useState<{ id: string; nameHe: string }[]>([]);
+  const [interiorIds, setInteriorIds] = useState<Set<string>>(new Set([INTERIOR_CATEGORY_ID]));
   const [loading, setLoading] = useState(true);
   const [activeSubcat, setActiveSubcat] = useState('all');
   const [activeDoorType, setActiveDoorType] = useState<DoorTypeId>('all');
@@ -34,21 +35,31 @@ function InteriorDoorsContent() {
     categoriesApi.getAll().then((r) => {
       const cats = r.data || [];
       const interior = cats.find((c: any) => c.id === INTERIOR_CATEGORY_ID);
-      setSubcategories(interior?.children || []);
+      const children = interior?.children || [];
+      setSubcategories(children);
+      setInteriorIds(new Set([INTERIOR_CATEGORY_ID, ...children.map((c: any) => c.id)]));
     });
   }, []);
 
   useEffect(() => {
     setLoading(true);
-    // Fetch all products for the main category (backend includes subcategory products)
-    productsApi.getPublic({ categoryId: INTERIOR_CATEGORY_ID, limit: 60 })
-      .then((r) => setProducts(r.data?.products || r.data || []))
+    productsApi.getPublic({ limit: 100 })
+      .then((r) => {
+        const products = r.data?.products || r.data || [];
+        setAllProducts(products);
+      })
       .finally(() => setLoading(false));
   }, []);
 
+  // Filter by interior category + subcategories
+  const entryProducts = allProducts.filter((p) => {
+    const catId = p.category?.id;
+    return catId && interiorIds.has(catId);
+  });
+
   const subcatFiltered = activeSubcat === 'all'
-    ? products
-    : products.filter((p) => p.category?.id === activeSubcat);
+    ? entryProducts
+    : entryProducts.filter((p) => p.category?.id === activeSubcat);
 
   const filteredProducts = activeDoorType === 'all'
     ? subcatFiltered
