@@ -41,18 +41,49 @@ const MANUFACTURING_TIME_OPTIONS = [
   { value: 'custom',     label: 'לפי הזמנה (מותאם אישית)' },
 ];
 
+// ─── Door variant helpers ─────────────────────────────────────────────────────
+
+const DOOR_VARIANT_DEFS = [
+  { id: 'single',      label: 'דלת',        icon: '🚪' },
+  { id: 'single_half', label: 'דלת וחצי',   icon: '🚪½' },
+  { id: 'double',      label: 'דלת כפולה',  icon: '🚪🚪' },
+] as const;
+
+type DoorVariantId = 'single' | 'single_half' | 'double';
+
+interface DoorVariantForm {
+  id: DoorVariantId;
+  label: string;
+  basePrice: string;
+}
+
+const emptyDoorVariants = (): DoorVariantForm[] =>
+  DOOR_VARIANT_DEFS.map((d) => ({ id: d.id, label: d.label, basePrice: '' }));
+
+const normalizeDoorVariants = (raw: any[]): DoorVariantForm[] => {
+  if (!Array.isArray(raw) || raw.length === 0) return emptyDoorVariants();
+  return DOOR_VARIANT_DEFS.map((def) => {
+    const found = raw.find((v: any) => v.id === def.id);
+    return {
+      id: def.id,
+      label: def.label,
+      basePrice: found ? String(found.basePrice ?? '') : '',
+    };
+  });
+};
+
 // ─── Empty form factory ───────────────────────────────────────────────────────
 
 const emptyCreateForm = () => ({
   name: '',
   description: '',
-  baseEstimatedPrice: '',
   depositAmount: '',
   manufacturingTime: '',
   warranty: 'none',
   categoryId: '',
   images: [] as string[],
   productOptions: [] as AdminOptionGroup[],
+  doorVariants: emptyDoorVariants(),
 });
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -162,18 +193,26 @@ export default function AdminProductsPage() {
     if (!createForm.name.trim()) { toast.error('שם דגם הדלת הוא שדה חובה'); return; }
     setCreateSaving(true);
     try {
-      const basePrice = Number(createForm.baseEstimatedPrice) || 0;
       const deposit = Number(createForm.depositAmount) || 0;
+      // Build doorVariants payload — only include variants that have a price
+      const doorVariantsPayload = createForm.doorVariants
+        .filter((v) => v.basePrice !== '')
+        .map((v) => ({ id: v.id, label: v.label, basePrice: Number(v.basePrice) || 0 }));
+      // Use the lowest variant price as the legacy baseEstimatedPrice
+      const lowestVariantPrice = doorVariantsPayload.length > 0
+        ? Math.min(...doorVariantsPayload.map((v) => v.basePrice))
+        : 0;
       const payload = {
         name: createForm.name.trim(),
         description: createForm.description.trim(),
-        baseEstimatedPrice: basePrice || null,
+        baseEstimatedPrice: lowestVariantPrice || null,
         depositAmount: deposit || null,
         manufacturingTime: createForm.manufacturingTime || null,
         warranty: createForm.warranty || null,
         categoryId: createForm.categoryId || null,
         images: createForm.images,
         productOptions: createForm.productOptions.length > 0 ? createForm.productOptions : null,
+        doorVariants: doorVariantsPayload.length > 0 ? doorVariantsPayload : null,
       };
       const r = await productsApi.adminCreate(payload);
       setProducts((p) => [r.data, ...p]);
@@ -195,26 +234,26 @@ export default function AdminProductsPage() {
       setEditForm({
         nameHe: p.nameHe || p.nameAr || '',
         descriptionHe: p.descriptionHe || p.descriptionAr || '',
-        baseEstimatedPrice: p.baseEstimatedPrice ?? p.customerPrice ?? p.price ?? '',
         depositAmount: p.depositAmount ?? '',
         manufacturingTime: p.manufacturingTime || '',
         warranty: p.warranty || 'none',
         categoryId: p.categoryId || '',
         images: (p.images || []) as string[],
         productOptions: (p.productOptions || []) as AdminOptionGroup[],
+        doorVariants: normalizeDoorVariants(p.doorVariants || []),
       });
     } catch {
       setEditProduct(product);
       setEditForm({
         nameHe: product.nameHe || product.nameAr || '',
         descriptionHe: product.descriptionHe || product.descriptionAr || '',
-        baseEstimatedPrice: product.baseEstimatedPrice ?? product.customerPrice ?? product.price ?? '',
         depositAmount: product.depositAmount ?? '',
         manufacturingTime: product.manufacturingTime || '',
         warranty: product.warranty || 'none',
         categoryId: product.categoryId || '',
         images: (product.images || []) as string[],
         productOptions: (product.productOptions || []) as AdminOptionGroup[],
+        doorVariants: normalizeDoorVariants(product.doorVariants || []),
       });
     }
   };
@@ -223,20 +262,26 @@ export default function AdminProductsPage() {
     if (!editProduct) return;
     setEditSaving(true);
     try {
-      const basePrice = Number(editForm.baseEstimatedPrice) || null;
       const deposit = Number(editForm.depositAmount) || null;
+      const doorVariantsPayload = (editForm.doorVariants as DoorVariantForm[])
+        .filter((v) => v.basePrice !== '')
+        .map((v) => ({ id: v.id, label: v.label, basePrice: Number(v.basePrice) || 0 }));
+      const lowestVariantPrice = doorVariantsPayload.length > 0
+        ? Math.min(...doorVariantsPayload.map((v) => v.basePrice))
+        : null;
       const payload = {
         nameHe: editForm.nameHe,
         nameAr: editForm.nameHe,
         descriptionHe: editForm.descriptionHe,
         descriptionAr: editForm.descriptionHe,
-        baseEstimatedPrice: basePrice,
+        baseEstimatedPrice: lowestVariantPrice,
         depositAmount: deposit,
         manufacturingTime: editForm.manufacturingTime || null,
         warranty: editForm.warranty || null,
         categoryId: editForm.categoryId || null,
         images: editForm.images,
         productOptions: editForm.productOptions?.length > 0 ? editForm.productOptions : null,
+        doorVariants: doorVariantsPayload.length > 0 ? doorVariantsPayload : null,
       };
       const r = await productsApi.adminUpdate(editProduct.id, payload);
       setProducts((p) => p.map((x) => x.id === editProduct.id ? { ...x, ...r.data } : x));
@@ -273,6 +318,60 @@ export default function AdminProductsPage() {
     </div>
   );
 
+  // ── Door Variants Section ─────────────────────────────────────────────────────
+
+  const DoorVariantsSection = ({
+    variants, onChange
+  }: { variants: DoorVariantForm[]; onChange: (v: DoorVariantForm[]) => void }) => (
+    <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+      <h3 className="text-sm font-bold text-amber-900 mb-1 flex items-center gap-2">
+        <DoorOpen className="w-4 h-4" /> סוגי הדלת ומחירי בסיס
+      </h3>
+      <p className="text-xs text-amber-700 mb-4">
+        הגדר מחיר בסיס לכל סוג דלת. הלקוח יבחר את הסוג כשלב ראשון בקונפיגורטור.
+      </p>
+      <div className="space-y-3">
+        {DOOR_VARIANT_DEFS.map((def, i) => {
+          const v = variants[i] ?? { id: def.id, label: def.label, basePrice: '' };
+          return (
+            <div key={def.id} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
+              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
+                <DoorOpen className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-800">{def.label}</p>
+                <p className="text-xs text-gray-400">
+                  {def.id === 'single' ? 'דלת בודדת סטנדרטית' :
+                   def.id === 'single_half' ? 'דלת בודדת + חצי פנל קבוע' :
+                   'שתי דלתות סימטריות'}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-sm text-gray-500 font-medium">₪</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={v.basePrice}
+                  onChange={(e) => {
+                    const updated = [...variants];
+                    updated[i] = { ...v, basePrice: e.target.value };
+                    onChange(updated);
+                  }}
+                  placeholder="מחיר"
+                  className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm text-left focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-amber-600 mt-3 bg-amber-100 rounded-lg px-3 py-2">
+        💡 השאר ריק אם סוג דלת זה אינו זמין בדגם זה. רק סוגים עם מחיר יוצגו ללקוח.
+      </p>
+    </div>
+  );
+
   // ── Door basic fields shared between create & edit ────────────────────────────
 
   const DoorBasicFields = ({
@@ -306,40 +405,32 @@ export default function AdminProductsPage() {
             : { ...form, descriptionHe: e.target.value }
           )}
           placeholder="תיאור מפורט של הדלת — חומרים, עיצוב, תכונות בטיחות..."
-          className="input-field" rows={4} dir="rtl"
+          className="input-field" rows={3} dir="rtl"
         />
       </div>
 
-      {/* Pricing section */}
+      {/* ── Door Variants (built-in step 1) ── */}
+      <DoorVariantsSection
+        variants={form.doorVariants || emptyDoorVariants()}
+        onChange={(v) => setForm({ ...form, doorVariants: v })}
+      />
+
+      {/* Deposit */}
       <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
         <h3 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
           <Banknote className="w-4 h-4" /> תמחור
         </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              מחיר בסיס משוער (₪)
-            </label>
-            <input type="number" min={0}
-              value={form.baseEstimatedPrice}
-              onChange={(e) => setForm({ ...form, baseEstimatedPrice: e.target.value })}
-              placeholder="0"
-              className="input-field"
-            />
-            <p className="text-xs text-gray-400 mt-1">לפני הוספת אפשרויות קונפיגורציה</p>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              דמי מקדמה (₪)
-            </label>
-            <input type="number" min={0}
-              value={form.depositAmount}
-              onChange={(e) => setForm({ ...form, depositAmount: e.target.value })}
-              placeholder="0"
-              className="input-field"
-            />
-            <p className="text-xs text-gray-400 mt-1">סכום שהלקוח משלם בהזמנה</p>
-          </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            דמי מקדמה (₪)
+          </label>
+          <input type="number" min={0}
+            value={form.depositAmount}
+            onChange={(e) => setForm({ ...form, depositAmount: e.target.value })}
+            placeholder="0"
+            className="input-field max-w-xs"
+          />
+          <p className="text-xs text-gray-400 mt-1">סכום שהלקוח משלם בהזמנה</p>
         </div>
       </div>
 
@@ -478,6 +569,11 @@ export default function AdminProductsPage() {
                     {product.isHidden && (
                       <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">מוסתר</span>
                     )}
+                    {product.doorVariants?.length > 0 && (
+                      <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <DoorOpen className="w-3 h-3" /> {product.doorVariants.length} סוגים
+                      </span>
+                    )}
                     {product.productOptions?.length > 0 && (
                       <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <Settings className="w-3 h-3" /> {product.productOptions.length} שלבים
@@ -490,12 +586,20 @@ export default function AdminProductsPage() {
                     )}
                   </div>
                   <div className="flex gap-3 mt-1 text-xs text-gray-500 flex-wrap">
-                    {(product.baseEstimatedPrice || product.customerPrice || product.price) && (
+                    {/* Show variant prices if available */}
+                    {product.doorVariants?.length > 0 ? (
+                      <span className="flex items-center gap-1">
+                        <Banknote className="w-3 h-3" />
+                        {product.doorVariants.map((v: any) =>
+                          `${v.label}: ₪${Number(v.basePrice).toLocaleString()}`
+                        ).join(' | ')}
+                      </span>
+                    ) : (product.baseEstimatedPrice || product.customerPrice || product.price) ? (
                       <span className="flex items-center gap-1">
                         <Banknote className="w-3 h-3" />
                         מחיר בסיס: ₪{Number(product.baseEstimatedPrice ?? product.customerPrice ?? product.price).toLocaleString()}
                       </span>
-                    )}
+                    ) : null}
                     {product.depositAmount && (
                       <span className="flex items-center gap-1 text-green-600">
                         מקדמה: ₪{Number(product.depositAmount).toLocaleString()}
@@ -586,8 +690,8 @@ export default function AdminProductsPage() {
               {createTab === 'options' && (
                 <div>
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-sm text-blue-700">
-                    <strong>קונפיגורטור הדלת</strong> — הגדר את שלבי הבחירה שהלקוח יעבור בעת הזמנת הדלת.
-                    כל שלב מייצג קבוצת בחירה (סוג דלת, גובה, צבע, מנעול וכו׳).
+                    <strong>קונפיגורטור הדלת</strong> — הגדר שלבי בחירה נוספים (צבע, מנעול, שדרוגים וכו׳).
+                    בחירת סוג הדלת כבר מוגדרת אוטומטית בלשונית "פרטי הדגם".
                   </div>
                   <AdminOptionGroupBuilder
                     value={createForm.productOptions}
@@ -676,27 +780,33 @@ export default function AdminProductsPage() {
               <div className="space-y-4">
                 <h1 className="text-2xl font-bold text-gray-900">{previewProduct.nameHe || previewProduct.nameAr}</h1>
 
-                {/* Pricing info */}
-                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                  <div className="flex flex-wrap gap-4">
-                    {(previewProduct.baseEstimatedPrice || previewProduct.customerPrice) && (
-                      <div>
-                        <p className="text-xs text-blue-600 font-medium mb-0.5">מחיר בסיס משוער</p>
-                        <p className="text-2xl font-bold text-blue-800">
-                          ₪{Number(previewProduct.baseEstimatedPrice ?? previewProduct.customerPrice).toLocaleString()}
-                        </p>
-                      </div>
-                    )}
-                    {previewProduct.depositAmount && (
-                      <div>
-                        <p className="text-xs text-green-600 font-medium mb-0.5">דמי מקדמה</p>
-                        <p className="text-2xl font-bold text-green-700">
-                          ₪{Number(previewProduct.depositAmount).toLocaleString()}
-                        </p>
-                      </div>
-                    )}
+                {/* Door variants preview */}
+                {previewProduct.doorVariants?.length > 0 && (
+                  <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                    <p className="text-xs font-bold text-amber-800 mb-3 flex items-center gap-1.5">
+                      <DoorOpen className="w-3.5 h-3.5" /> שלב 1 — בחר סוג דלת
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {previewProduct.doorVariants.map((v: any) => (
+                        <div key={v.id} className="bg-white rounded-xl p-3 border border-amber-200 text-center">
+                          <DoorOpen className="w-6 h-6 mx-auto mb-1 text-amber-600" />
+                          <p className="text-xs font-semibold text-gray-800">{v.label}</p>
+                          <p className="text-sm font-bold text-amber-700 mt-0.5">₪{Number(v.basePrice).toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Deposit info */}
+                {previewProduct.depositAmount && (
+                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <p className="text-xs text-blue-600 font-medium mb-0.5">דמי מקדמה</p>
+                    <p className="text-2xl font-bold text-blue-800">
+                      ₪{Number(previewProduct.depositAmount).toLocaleString()}
+                    </p>
+                  </div>
+                )}
 
                 {/* Meta info */}
                 <div className="flex flex-wrap gap-3 text-sm text-gray-500">
@@ -714,7 +824,7 @@ export default function AdminProductsPage() {
                   )}
                   {previewProduct.category?.nameHe && (
                     <span className="bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
-                      קטגוריה: {previewProduct.category.nameHe}
+                      {previewProduct.category.nameHe}
                     </span>
                   )}
                 </div>
@@ -732,14 +842,14 @@ export default function AdminProductsPage() {
                 {previewProduct.productOptions?.length > 0 && (
                   <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                     <h3 className="font-semibold text-blue-800 mb-3 text-sm">
-                      ⚙️ קונפיגורטור הדלת ({previewProduct.productOptions.length} שלבים)
+                      ⚙️ קונפיגורטור הדלת ({previewProduct.productOptions.length} שלבים נוספים)
                     </h3>
                     <div className="space-y-3">
                       {previewProduct.productOptions.map((group: any, gi: number) => (
                         <div key={gi} className="bg-white rounded-lg p-3 border border-blue-100">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center shrink-0">
-                              {group.step ?? gi + 1}
+                              {(group.step ?? gi + 1) + 1}
                             </span>
                             <p className="text-sm font-semibold text-blue-800">{group.name}</p>
                             {group.type && (
@@ -828,7 +938,8 @@ export default function AdminProductsPage() {
               {editTab === 'options' && (
                 <div>
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4 text-sm text-blue-700">
-                    <strong>קונפיגורטור הדלת</strong> — הגדר את שלבי הבחירה שהלקוח יעבור בעת הזמנת הדלת.
+                    <strong>קונפיגורטור הדלת</strong> — הגדר שלבי בחירה נוספים (צבע, מנעול, שדרוגים וכו׳).
+                    בחירת סוג הדלת כבר מוגדרת אוטומטית בלשונית "פרטי הדגם".
                   </div>
                   <AdminOptionGroupBuilder
                     value={editForm.productOptions || []}

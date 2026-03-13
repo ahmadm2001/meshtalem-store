@@ -49,12 +49,22 @@ export default function ProductPage() {
           ? p.images[0]
           : '';
 
+        // Build door variants from product.doorVariants
+        const doorVariants = Array.isArray(p.doorVariants)
+          ? p.doorVariants.map((v: any) => ({
+              id: v.id,
+              label: v.label,
+              basePrice: Number(v.basePrice ?? 0),
+            }))
+          : [];
+
         configurator.init({
           productId: p.id,
           productName: p.nameHe || p.nameAr || '',
           basePrice,
           defaultImage,
           rawOptions: p.productOptions ?? [],
+          doorVariants,
         });
       })
       .catch(() => router.push('/products'))
@@ -74,8 +84,11 @@ export default function ProductPage() {
 
   const estimatedTotal = configurator.getEstimatedTotal();
   const extraCost = configurator.getOptionsExtraCost();
-  const basePrice = configurator.basePrice;
-  const hasOptions = (product?.productOptions ?? []).length > 0;
+  const basePrice = configurator.getEffectiveBasePrice
+    ? configurator.getEffectiveBasePrice()
+    : configurator.basePrice;
+  const hasDoorVariants = (configurator.doorVariants ?? []).length > 0;
+  const hasOptions = (product?.productOptions ?? []).length > 0 || hasDoorVariants;
 
   // ── Add to cart ───────────────────────────────────────────────────────────
   const handleAddToCart = () => {
@@ -102,6 +115,9 @@ export default function ProductPage() {
             }))
           : undefined,
         optionsExtraCost: extraCost > 0 ? extraCost : undefined,
+        doorVariant: configurator.getSelectedDoorVariant
+          ? configurator.getSelectedDoorVariant()?.label
+          : undefined,
       });
       toast.success(`${qty} יחידות נוספו לעגלה!`);
     } finally {

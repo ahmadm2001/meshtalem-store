@@ -48,6 +48,8 @@ export interface CartItem {
   selectedOptionSnapshots?: SelectedOptionSnapshot[];
   /** Sum of all priceModifiers from selected options */
   optionsExtraCost?: number;
+  /** Selected door variant label (e.g. 'דלת', 'דלת וחצי', 'דלת כפולה') */
+  doorVariant?: string;
 }
 
 interface AuthStore {

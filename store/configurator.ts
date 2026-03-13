@@ -2,6 +2,7 @@
  * Q DOOR Configurator Store (Zustand)
  *
  * Manages the full state of the door configurator:
+ *  - Built-in door variant selection (step 1: דלת / דלת וחצי / דלת כפולה)
  *  - Option schema loaded from the product API
  *  - User selections (by group ID → array of value IDs)
  *  - Live price calculation
@@ -20,6 +21,14 @@ import {
   normaliseOptionGroups,
 } from '@/lib/configurator.types';
 
+// ─── Door Variant types ───────────────────────────────────────────────────────
+
+export interface DoorVariant {
+  id: string;       // 'single' | 'single_half' | 'double'
+  label: string;    // 'דלת' | 'דלת וחצי' | 'דלת כפולה'
+  basePrice: number;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // State & Actions Interface
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,11 +37,18 @@ interface ConfiguratorStore {
   // ── Core data ──────────────────────────────────────────────────────────────
   productId: string | null;
   productName: string;
+  /** Fallback base price (used when no doorVariant is selected yet) */
   basePrice: number;
   defaultImage: string;
   optionGroups: ConfigOptionGroup[];
 
-  // ── User selections ────────────────────────────────────────────────────────
+  // ── Door variants (built-in step 1) ───────────────────────────────────────
+  /** Available door variants for this product (from product.doorVariants) */
+  doorVariants: DoorVariant[];
+  /** Currently selected door variant ID (null = not yet selected) */
+  selectedDoorVariantId: string | null;
+
+  // ── User selections (for option groups beyond step 1) ─────────────────────
   /** Key = group.id, Value = array of selected value IDs */
   selections: ConfigSelections;
 
@@ -45,10 +61,14 @@ interface ConfiguratorStore {
     basePrice: number;
     defaultImage: string;
     rawOptions: unknown[];
+    doorVariants?: DoorVariant[];
   }) => void;
 
   /** Reset all selections (e.g. when navigating away). */
   reset: () => void;
+
+  /** Select a door variant (step 1). Updates the effective base price. */
+  selectDoorVariant: (variantId: string) => void;
 
   /**
    * Toggle a value selection for a group.
@@ -66,21 +86,24 @@ interface ConfiguratorStore {
 
   // ── Derived getters ────────────────────────────────────────────────────────
 
+  /** Returns the currently selected door variant object (or null). */
+  getSelectedDoorVariant: () => DoorVariant | null;
+  /** Returns the effective base price (from selected door variant, or fallback). */
+  getEffectiveBasePrice: () => number;
   /** Returns only the groups that should currently be visible (dependency check). */
   getVisibleGroups: () => ConfigOptionGroup[];
-
-  /** Returns the current wizard step number (highest step with a visible group). */
+  /** Returns the current wizard step number. */
   getCurrentStep: () => number;
 
   /**
    * Returns the estimated total price:
-   *   basePrice + sum of priceModifiers for all selected values.
+   *   effectiveBasePrice + sum of priceModifiers for all selected values.
    */
   getEstimatedTotal: () => number;
 
   /**
    * Returns the total extra cost from options only
-   * (i.e. getEstimatedTotal() - basePrice).
+   * (i.e. getEstimatedTotal() - effectiveBasePrice).
    */
   getOptionsExtraCost: () => number;
 
@@ -92,7 +115,9 @@ interface ConfiguratorStore {
   getPreviewImage: () => string;
 
   /**
-   * Returns true if all required visible groups have at least one selection.
+   * Returns true if:
+   *  1. A door variant is selected (if doorVariants exist)
+   *  2. All required visible option groups have at least one selection.
    */
   isConfigurationComplete: () => boolean;
 
@@ -154,13 +179,14 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   basePrice: 0,
   defaultImage: '',
   optionGroups: [],
+  doorVariants: [],
+  selectedDoorVariantId: null,
   selections: {},
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  init: ({ productId, productName, basePrice, defaultImage, rawOptions }) => {
+  init: ({ productId, productName, basePrice, defaultImage, rawOptions, doorVariants }) => {
     const optionGroups = normaliseOptionGroups(rawOptions);
-    // Sort groups by step ascending
     optionGroups.sort((a, b) => a.step - b.step);
     set({
       productId,
@@ -168,11 +194,23 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       basePrice,
       defaultImage,
       optionGroups,
+      doorVariants: doorVariants ?? [],
+      selectedDoorVariantId: null,
       selections: {},
     });
   },
 
-  reset: () => set({ selections: {}, productId: null, optionGroups: [] }),
+  reset: () => set({
+    selections: {},
+    productId: null,
+    optionGroups: [],
+    doorVariants: [],
+    selectedDoorVariantId: null,
+  }),
+
+  selectDoorVariant: (variantId) => {
+    set({ selectedDoorVariantId: variantId });
+  },
 
   toggleSelection: (groupId, valueId) => {
     const { optionGroups, selections } = get();
@@ -213,6 +251,21 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
 
   // ── Derived getters ────────────────────────────────────────────────────────
 
+  getSelectedDoorVariant: () => {
+    const { doorVariants, selectedDoorVariantId } = get();
+    if (!selectedDoorVariantId) return null;
+    return doorVariants.find((v) => v.id === selectedDoorVariantId) ?? null;
+  },
+
+  getEffectiveBasePrice: () => {
+    const { doorVariants, selectedDoorVariantId, basePrice } = get();
+    if (doorVariants.length > 0 && selectedDoorVariantId) {
+      const variant = doorVariants.find((v) => v.id === selectedDoorVariantId);
+      if (variant) return variant.basePrice;
+    }
+    return basePrice;
+  },
+
   getVisibleGroups: () => {
     const { optionGroups, selections } = get();
     return optionGroups.filter((g) =>
@@ -227,7 +280,8 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   },
 
   getEstimatedTotal: () => {
-    const { optionGroups, selections, basePrice } = get();
+    const { optionGroups, selections } = get();
+    const effectiveBase = get().getEffectiveBasePrice();
     let extra = 0;
 
     for (const group of optionGroups) {
@@ -239,11 +293,11 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
       }
     }
 
-    return basePrice + extra;
+    return effectiveBase + extra;
   },
 
   getOptionsExtraCost: () => {
-    return get().getEstimatedTotal() - get().basePrice;
+    return get().getEstimatedTotal() - get().getEffectiveBasePrice();
   },
 
   getPreviewImage: () => {
@@ -262,7 +316,10 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   },
 
   isConfigurationComplete: () => {
-    const { selections } = get();
+    const { doorVariants, selectedDoorVariantId, selections } = get();
+    // If there are door variants, one must be selected
+    if (doorVariants.length > 0 && !selectedDoorVariantId) return false;
+    // All required visible option groups must have a selection
     const visible = get().getVisibleGroups();
     return visible
       .filter((g) => g.required)
@@ -272,6 +329,18 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   buildSnapshot: (): SelectedOptionSnapshot[] => {
     const { optionGroups, selections } = get();
     const snapshot: SelectedOptionSnapshot[] = [];
+
+    // Include door variant as first snapshot entry
+    const selectedVariant = get().getSelectedDoorVariant();
+    if (selectedVariant) {
+      snapshot.push({
+        groupId: 'door_variant',
+        groupName: 'סוג דלת',
+        selectedValueIds: [selectedVariant.id],
+        selectedValueLabels: [selectedVariant.label],
+        priceModifier: 0,
+      });
+    }
 
     for (const group of optionGroups) {
       if (!isDependencySatisfied(group.dependsOn, selections)) continue;
