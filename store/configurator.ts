@@ -27,6 +27,8 @@ export interface DoorVariant {
   id: string;       // 'single' | 'single_half' | 'double'
   label: string;    // 'דלת' | 'דלת וחצי' | 'דלת כפולה'
   basePrice: number;
+  /** Optional image URL for this variant */
+  image?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -303,6 +305,7 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
   getPreviewImage: () => {
     const { optionGroups, selections, defaultImage } = get();
 
+    // First check option group imageOverrides
     for (const group of optionGroups) {
       if (!isDependencySatisfied(group.dependsOn, selections)) continue;
       const selectedIds = selections[group.id] ?? [];
@@ -311,6 +314,10 @@ export const useConfiguratorStore = create<ConfiguratorStore>((set, get) => ({
         if (val?.imageOverride) return val.imageOverride;
       }
     }
+
+    // Then check selected door variant image
+    const selectedVariant = get().getSelectedDoorVariant();
+    if (selectedVariant?.image) return selectedVariant.image;
 
     return defaultImage;
   },

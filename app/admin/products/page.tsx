@@ -55,10 +55,11 @@ interface DoorVariantForm {
   id: DoorVariantId;
   label: string;
   basePrice: string;
+  image: string;  // URL or empty string
 }
 
 const emptyDoorVariants = (): DoorVariantForm[] =>
-  DOOR_VARIANT_DEFS.map((d) => ({ id: d.id, label: d.label, basePrice: '' }));
+  DOOR_VARIANT_DEFS.map((d) => ({ id: d.id, label: d.label, basePrice: '', image: '' }));
 
 const normalizeDoorVariants = (raw: any[]): DoorVariantForm[] => {
   if (!Array.isArray(raw) || raw.length === 0) return emptyDoorVariants();
@@ -68,6 +69,7 @@ const normalizeDoorVariants = (raw: any[]): DoorVariantForm[] => {
       id: def.id,
       label: def.label,
       basePrice: found ? String(found.basePrice ?? '') : '',
+      image: found?.image || '',
     };
   });
 };
@@ -197,7 +199,7 @@ export default function AdminProductsPage() {
       // Build doorVariants payload — only include variants that have a price
       const doorVariantsPayload = createForm.doorVariants
         .filter((v) => v.basePrice !== '')
-        .map((v) => ({ id: v.id, label: v.label, basePrice: Number(v.basePrice) || 0 }));
+        .map((v) => ({ id: v.id, label: v.label, basePrice: Number(v.basePrice) || 0, image: v.image || null }));
       // Use the lowest variant price as the legacy baseEstimatedPrice
       const lowestVariantPrice = doorVariantsPayload.length > 0
         ? Math.min(...doorVariantsPayload.map((v) => v.basePrice))
@@ -265,7 +267,7 @@ export default function AdminProductsPage() {
       const deposit = Number(editForm.depositAmount) || null;
       const doorVariantsPayload = (editForm.doorVariants as DoorVariantForm[])
         .filter((v) => v.basePrice !== '')
-        .map((v) => ({ id: v.id, label: v.label, basePrice: Number(v.basePrice) || 0 }));
+        .map((v) => ({ id: v.id, label: v.label, basePrice: Number(v.basePrice) || 0, image: v.image || null }));
       const lowestVariantPrice = doorVariantsPayload.length > 0
         ? Math.min(...doorVariantsPayload.map((v) => v.basePrice))
         : null;
@@ -322,55 +324,124 @@ export default function AdminProductsPage() {
 
   const DoorVariantsSection = ({
     variants, onChange
-  }: { variants: DoorVariantForm[]; onChange: (v: DoorVariantForm[]) => void }) => (
-    <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-      <h3 className="text-sm font-bold text-amber-900 mb-1 flex items-center gap-2">
-        <DoorOpen className="w-4 h-4" /> סוגי הדלת ומחירי בסיס
-      </h3>
-      <p className="text-xs text-amber-700 mb-4">
-        הגדר מחיר בסיס לכל סוג דלת. הלקוח יבחר את הסוג כשלב ראשון בקונפיגורטור.
-      </p>
-      <div className="space-y-3">
-        {DOOR_VARIANT_DEFS.map((def, i) => {
-          const v = variants[i] ?? { id: def.id, label: def.label, basePrice: '' };
-          return (
-            <div key={def.id} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
-              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                <DoorOpen className="w-5 h-5 text-amber-700" />
+  }: { variants: DoorVariantForm[]; onChange: (v: DoorVariantForm[]) => void }) => {
+    const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+
+    const handleVariantImageUpload = async (file: File, i: number) => {
+      setUploadingIdx(i);
+      try {
+        const { uploadsApi } = await import('@/lib/api');
+        const url = await uploadsApi.uploadImage(file);
+        const updated = [...variants];
+        updated[i] = { ...updated[i], image: url };
+        onChange(updated);
+      } catch {
+        toast.error('שגיאה בהעלאת התמונה');
+      } finally {
+        setUploadingIdx(null);
+      }
+    };
+
+    return (
+      <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+        <h3 className="text-sm font-bold text-amber-900 mb-1 flex items-center gap-2">
+          <DoorOpen className="w-4 h-4" /> סוגי הדלת ומחירי בסיס
+        </h3>
+        <p className="text-xs text-amber-700 mb-4">
+          הגדר מחיר בסיס ותמונה לכל סוג דלת. הלקוח יבחר את הסוג כשלב ראשון בקונפיגורטור.
+        </p>
+        <div className="space-y-4">
+          {DOOR_VARIANT_DEFS.map((def, i) => {
+            const v = variants[i] ?? { id: def.id, label: def.label, basePrice: '', image: '' };
+            const isUploading = uploadingIdx === i;
+            return (
+              <div key={def.id} className="bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
+                {/* Row 1: icon + label + price */}
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
+                    <DoorOpen className="w-5 h-5 text-amber-700" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-800">{def.label}</p>
+                    <p className="text-xs text-gray-400">
+                      {def.id === 'single' ? 'דלת בודדת סטנדרטית' :
+                       def.id === 'single_half' ? 'דלת בודדת + חצי פנל קבוע' :
+                       'שתי דלתות סימטריות'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-sm text-gray-500 font-medium">₪</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={v.basePrice}
+                      onChange={(e) => {
+                        const updated = [...variants];
+                        updated[i] = { ...v, basePrice: e.target.value };
+                        onChange(updated);
+                      }}
+                      placeholder="מחיר"
+                      className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm text-left focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none"
+                      dir="ltr"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2: image upload */}
+                <div className="flex items-center gap-3">
+                  {/* Thumbnail */}
+                  <div className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                    {v.image ? (
+                      <img src={v.image} alt={def.label} className="w-full h-full object-cover rounded-lg" />
+                    ) : (
+                      <DoorOpen className="w-6 h-6 text-gray-300" />
+                    )}
+                  </div>
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleVariantImageUpload(file, i);
+                          e.target.value = '';
+                        }}
+                      />
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        isUploading
+                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                          : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
+                      }`}>
+                        {isUploading ? (
+                          <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" /></svg>
+                        ) : (
+                          <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
+                        )}
+                        {isUploading ? 'מעלה...' : 'העלה תמונה'}
+                      </span>
+                    </label>
+                    {v.image ? (
+                      <button type="button" onClick={() => { const u=[...variants]; u[i]={...v,image:''}; onChange(u); }}
+                        className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600">
+                        <X className="w-3 h-3" /> הסר תמונה
+                      </button>
+                    ) : (
+                      <p className="text-xs text-gray-400">ללא תמונה — יוצג איקון ברירת מחדל</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-800">{def.label}</p>
-                <p className="text-xs text-gray-400">
-                  {def.id === 'single' ? 'דלת בודדת סטנדרטית' :
-                   def.id === 'single_half' ? 'דלת בודדת + חצי פנל קבוע' :
-                   'שתי דלתות סימטריות'}
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-sm text-gray-500 font-medium">₪</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={v.basePrice}
-                  onChange={(e) => {
-                    const updated = [...variants];
-                    updated[i] = { ...v, basePrice: e.target.value };
-                    onChange(updated);
-                  }}
-                  placeholder="מחיר"
-                  className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm text-left focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none"
-                  dir="ltr"
-                />
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+        <p className="text-xs text-amber-600 mt-3 bg-amber-100 rounded-lg px-3 py-2">
+          💡 השאר ריק אם סוג דלת זה אינו זמין בדגם זה. רק סוגים עם מחיר יוצגו ללקוח.
+        </p>
       </div>
-      <p className="text-xs text-amber-600 mt-3 bg-amber-100 rounded-lg px-3 py-2">
-        💡 השאר ריק אם סוג דלת זה אינו זמין בדגם זה. רק סוגים עם מחיר יוצגו ללקוח.
-      </p>
-    </div>
-  );
+    );
+  };
 
   // ── Door basic fields shared between create & edit ────────────────────────────
 

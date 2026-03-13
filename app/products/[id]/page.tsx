@@ -55,6 +55,7 @@ export default function ProductPage() {
               id: v.id,
               label: v.label,
               basePrice: Number(v.basePrice ?? 0),
+              image: v.image || null,
             }))
           : [];
 
