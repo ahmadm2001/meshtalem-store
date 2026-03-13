@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
             <Shield className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">פאנל ניהול</h1>
-          <p className="text-gray-400 text-sm mt-1">משתלם - כניסה למנהלים בלבד</p>
+          <p className="text-gray-400 text-sm mt-1">Q Door - כניסה למנהלים בלבד</p>
         </div>
 
         {/* Login Card */}
@@ -137,7 +137,7 @@ export default function AdminLoginPage() {
 
         {/* Footer */}
         <p className="text-center text-gray-600 text-xs mt-6">
-          © 2026 משתלם · גישה מורשית בלבד
+          © 2026 Q Door · גישה מורשית בלבד
         </p>
       </div>
     </div>

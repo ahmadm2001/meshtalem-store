@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from 'react-hot-toast';
 
 export const metadata: Metadata = {
-  title: 'משתלם - מוצרים איכותיים במחירים הכי משתלמים',
-  description: 'חנות אונליין עם מוצרים איכותיים, משלוח עד הבית',
+  title: 'Q Door — דלתות פרימיום בהתאמה אישית',
+  description: 'דלתות פרימיום בהתאמה אישית. עיצוב, איכות ואמינות — בכל דלת.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

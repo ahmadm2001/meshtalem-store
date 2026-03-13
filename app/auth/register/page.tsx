@@ -29,7 +29,7 @@ export default function RegisterPage() {
       });
       const { user, access_token } = res.data;
       setAuth(user, access_token);
-      toast.success('ברוך הבא למשתלם!');
+      toast.success('ברוך הבא לQ Door!');
       router.push('/products');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'שגיאה בהרשמה');
@@ -44,7 +44,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-md">
           <div className="card shadow-md">
             <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">הרשמה למשתלם</h1>
+              <h1 className="text-2xl font-bold text-gray-900">הרשמה לQ Door</h1>
               <p className="text-gray-500 text-sm mt-1">צור חשבון חדש בחינם</p>
             </div>
 

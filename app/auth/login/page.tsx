@@ -46,7 +46,7 @@ export default function LoginPage() {
           <div className="card shadow-md">
             <div className="text-center mb-6">
               <h1 className="text-2xl font-bold text-gray-900">כניסה לחשבון</h1>
-              <p className="text-gray-500 text-sm mt-1">ברוך הבא למשתלם</p>
+              <p className="text-gray-500 text-sm mt-1">ברוך הבא לQ Door</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">

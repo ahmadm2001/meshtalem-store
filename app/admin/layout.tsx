@@ -34,7 +34,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-primary-400" />
             <div>
-              <p className="font-bold text-white">משתלם</p>
+              <p className="font-bold text-white">Q Door</p>
               <p className="text-xs text-gray-400">פאנל ניהול</p>
             </div>
           </div>
