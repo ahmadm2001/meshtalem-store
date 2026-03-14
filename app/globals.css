@@ -2,34 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    direction: rtl;
-  }
-  body {
-    @apply bg-slate-50 text-gray-900;
-    font-family: 'Segoe UI', Arial, sans-serif;
-  }
+@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --color-accent: #c9a84c;
+  --color-accent-light: #fef9ec;
+  --color-nav-bg: #1c1c1c;
+  --color-topbar-bg: #111111;
+  --color-border: #e5e5e5;
+  --color-text: #2d2d2d;
+  --color-text-muted: #888888;
+  --color-sale: #c0392b;
 }
+
+* { box-sizing: border-box; }
+
+html {
+  direction: rtl;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Assistant', 'Arial Hebrew', Arial, sans-serif;
+  background-color: #ffffff;
+  color: var(--color-text);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-700 active:bg-primary-800 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-gray-900 text-white px-5 py-2.5 font-semibold hover:bg-gray-800 transition-all;
+  }
+  .btn-accent {
+    background: var(--color-accent);
+    @apply text-white px-5 py-2.5 font-semibold transition-all;
+  }
+  .btn-accent:hover {
+    background: #b8943e;
   }
   .btn-secondary {
-    @apply bg-white text-primary-700 px-4 py-2 rounded-lg font-semibold border border-primary-200 hover:bg-primary-50 transition-all;
+    @apply bg-white text-gray-900 px-5 py-2.5 font-semibold border border-gray-300 hover:border-gray-900 transition-all;
   }
   .btn-ghost {
-    @apply text-gray-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-all;
+    @apply text-gray-600 px-4 py-2 font-medium hover:text-gray-900 transition-all;
   }
   .btn-danger {
-    @apply bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition-all;
+    @apply bg-red-600 text-white px-4 py-2 font-semibold hover:bg-red-700 transition-all;
   }
   .input-field {
-    @apply w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white transition-shadow;
+    @apply w-full border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 bg-white transition-shadow;
   }
   .card {
-    @apply bg-white rounded-2xl shadow-card border border-gray-100 p-5;
+    @apply bg-white border border-gray-100 p-5;
   }
   .badge-pending {
     @apply bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full;
@@ -42,5 +72,62 @@
   }
   .section-title {
     @apply text-2xl font-bold text-gray-900 tracking-tight;
+  }
+  /* Product card */
+  .product-card {
+    @apply bg-white border border-gray-200 overflow-hidden cursor-pointer transition-shadow hover:shadow-lg;
+  }
+  .product-card-img {
+    @apply transition-transform duration-300;
+  }
+  .product-card:hover .product-card-img {
+    transform: scale(1.03);
+  }
+  /* Price */
+  .price-original {
+    @apply text-gray-400 line-through text-sm;
+  }
+  .price-sale {
+    @apply text-gray-900 font-bold text-lg;
+  }
+  .price-discount-label {
+    background: var(--color-accent-light);
+    color: #8a6a00;
+    @apply text-xs font-semibold px-2 py-1 inline-block;
+  }
+  /* Badges */
+  .badge-sale-tag {
+    @apply bg-gray-900 text-white text-xs font-bold px-2 py-1;
+  }
+  .badge-new-tag {
+    background: var(--color-accent);
+    @apply text-white text-xs font-bold px-2 py-1;
+  }
+  /* Category icon nav */
+  .cat-icon-item {
+    @apply flex flex-col items-center gap-1 cursor-pointer px-3 py-2 transition-all;
+  }
+  .cat-icon-item span {
+    @apply text-xs text-gray-600 font-medium text-center;
+  }
+  .cat-icon-item.active span {
+    @apply text-gray-900 font-bold;
+  }
+  .cat-icon-item.active {
+    border-bottom: 2px solid var(--color-accent);
+  }
+  /* Door type tabs */
+  .door-tab {
+    @apply px-6 py-2 border border-gray-300 text-sm font-medium cursor-pointer transition-all hover:border-gray-900;
+  }
+  .door-tab.active {
+    @apply border-gray-900 font-bold;
+  }
+  /* Breadcrumb */
+  .breadcrumb {
+    @apply flex items-center gap-1 text-xs text-gray-500;
+  }
+  .breadcrumb a:hover {
+    @apply text-gray-900;
   }
 }

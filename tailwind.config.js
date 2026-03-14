@@ -1,37 +1,40 @@
-/** @type {import('tailwindcss').Config} */
+/** @type {import("tailwindcss").Config} */
 module.exports = {
   content: [
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
         primary: {
-          50:  '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
+          50:  "#fafafa",
+          100: "#f5f5f5",
+          200: "#e5e5e5",
+          300: "#d4d4d4",
+          400: "#a3a3a3",
+          500: "#737373",
+          600: "#525252",
+          700: "#404040",
+          800: "#262626",
+          900: "#171717",
+          950: "#0a0a0a",
         },
-        gold: {
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
+        accent: {
+          light: "#fef9ec",
+          DEFAULT: "#c9a84c",
+          dark: "#b8943e",
         },
+        nav: "#1c1c1c",
+        topbar: "#111111",
       },
       fontFamily: {
-        sans: ['Segoe UI', 'Arial', 'sans-serif'],
+        sans: ["Assistant", "Arial Hebrew", "Arial", "sans-serif"],
       },
       boxShadow: {
-        'premium': '0 4px 24px 0 rgba(37, 99, 235, 0.12)',
-        'card':    '0 2px 12px 0 rgba(0,0,0,0.07)',
+        card: "0 2px 8px 0 rgba(0,0,0,0.08)",
+        "card-hover": "0 8px 24px 0 rgba(0,0,0,0.14)",
+        nav: "0 2px 8px rgba(0,0,0,0.15)",
       },
     },
   },
