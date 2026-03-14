@@ -47,10 +47,10 @@ function ProductsContent() {
   return (
     <StoreLayout>
       {/* Hero */}
-      <div className="relative bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white overflow-hidden">
+      <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 text-white overflow-hidden">
         {/* Decorative circles */}
-        <div className="absolute top-0 left-0 w-96 h-96 bg-primary-600 rounded-full opacity-20 -translate-x-1/2 -translate-y-1/2" />
-        <div className="absolute bottom-0 right-0 w-64 h-64 bg-primary-500 rounded-full opacity-20 translate-x-1/3 translate-y-1/3" />
+        <div className="absolute top-0 left-0 w-96 h-96 bg-gray-900 rounded-full opacity-20 -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-gray-500 rounded-full opacity-20 translate-x-1/3 translate-y-1/3" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
           <div className="max-w-2xl">
@@ -62,7 +62,7 @@ function ProductsContent() {
               הדלת שמגדירה<br />
               <span className="text-yellow-400">את הבית שלך</span>
             </h1>
-            <p className="text-primary-200 text-lg mb-8 leading-relaxed">
+            <p className="text-gray-300 text-lg mb-8 leading-relaxed">
               עיצוב, איכות ואמינות — בחר מתוך מגוון דלתות פרימיום ותתאים אותן בדיוק לצרכים שלך.
             </p>
 
@@ -76,9 +76,9 @@ function ProductsContent() {
                   placeholder="חפש דלת..."
                   className="w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-primary-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-white/40 transition-all"
                 />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-300" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               </div>
-              <button className="bg-yellow-400 hover:bg-yellow-300 text-primary-900 font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-lg">
+              <button className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-lg">
                 חיפוש
               </button>
             </div>
@@ -88,7 +88,7 @@ function ProductsContent() {
         {/* Feature badges */}
         <div className="relative border-t border-white/10 bg-white/5 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex gap-6 overflow-x-auto text-sm text-primary-200">
+            <div className="flex gap-6 overflow-x-auto text-sm text-gray-300">
               <div className="flex items-center gap-2 shrink-0">
                 <Shield className="w-4 h-4 text-yellow-400" />
                 <span>אחריות עד 10 שנים</span>
@@ -116,7 +116,7 @@ function ProductsContent() {
           <aside className="w-56 shrink-0 hidden md:block">
             <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-4 sticky top-28">
               <h3 className="font-bold text-gray-800 mb-4 text-sm flex items-center gap-2">
-                <DoorOpen className="w-4 h-4 text-primary-600" />
+                <DoorOpen className="w-4 h-4 text-gray-700" />
                 קטגוריות
               </h3>
               <ul className="space-y-0.5">
@@ -124,7 +124,7 @@ function ProductsContent() {
                   <button
                     onClick={() => selectRoot('')}
                     className={`w-full text-right text-sm px-3 py-2.5 rounded-xl transition-all ${
-                      !selectedCat ? 'bg-primary-600 text-white font-semibold shadow-sm' : 'text-gray-600 hover:bg-primary-50 hover:text-primary-700'
+                      !selectedCat ? 'bg-gray-900 text-white font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
                     כל הדלתות
@@ -135,7 +135,7 @@ function ProductsContent() {
                     <button
                       onClick={() => selectRoot(cat.id)}
                       className={`w-full text-right text-sm px-3 py-2.5 rounded-xl transition-all flex items-center justify-between ${
-                        selectedCat === cat.id ? 'bg-primary-600 text-white font-semibold shadow-sm' : 'text-gray-600 hover:bg-primary-50 hover:text-primary-700'
+                        selectedCat === cat.id ? 'bg-gray-900 text-white font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                       }`}
                     >
                       <span>{cat.nameHe}</span>
@@ -146,12 +146,12 @@ function ProductsContent() {
                       )}
                     </button>
                     {selectedCat === cat.id && (cat.children?.length ?? 0) > 0 && (
-                      <ul className="mr-3 mt-1 space-y-0.5 border-r-2 border-primary-100 pr-2">
+                      <ul className="mr-3 mt-1 space-y-0.5 border-r-2 border-gray-200 pr-2">
                         <li>
                           <button
                             onClick={() => setSelectedSub('')}
                             className={`w-full text-right text-xs px-2 py-1.5 rounded-lg transition-all ${
-                              !selectedSub ? 'text-primary-600 font-semibold' : 'text-gray-500 hover:bg-gray-50'
+                              !selectedSub ? 'text-gray-900 font-semibold' : 'text-gray-500 hover:bg-gray-50'
                             }`}
                           >הכל</button>
                         </li>
@@ -160,7 +160,7 @@ function ProductsContent() {
                             <button
                               onClick={() => setSelectedSub(sub.id)}
                               className={`w-full text-right text-xs px-2 py-1.5 rounded-lg transition-all ${
-                                selectedSub === sub.id ? 'text-primary-600 font-semibold bg-primary-50' : 'text-gray-500 hover:bg-gray-50'
+                                selectedSub === sub.id ? 'text-gray-900 font-semibold bg-gray-50' : 'text-gray-500 hover:bg-gray-50'
                               }`}
                             >{sub.nameHe}</button>
                           </li>
@@ -180,13 +180,13 @@ function ProductsContent() {
               <button
                 onClick={() => selectRoot('')}
                 className={`shrink-0 text-sm px-4 py-2 rounded-full font-semibold transition-all ${
-                  !selectedCat ? 'bg-primary-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600'
+                  !selectedCat ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600'
                 }`}
               >הכל</button>
               {categories.map((cat: any) => (
                 <button key={cat.id} onClick={() => selectRoot(cat.id)}
                   className={`shrink-0 text-sm px-4 py-2 rounded-full font-semibold transition-all ${
-                    selectedCat === cat.id ? 'bg-primary-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600'
+                    selectedCat === cat.id ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600'
                   }`}
                 >{cat.nameHe}</button>
               ))}
@@ -215,8 +215,8 @@ function ProductsContent() {
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-20">
-                <div className="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <DoorOpen className="w-10 h-10 text-primary-300" />
+                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <DoorOpen className="w-10 h-10 text-gray-400" />
                 </div>
                 <p className="text-lg font-semibold text-gray-700">לא נמצאו דלתות</p>
                 <p className="text-gray-400 text-sm mt-1">נסה לשנות את מונחי החיפוש</p>
@@ -247,13 +247,13 @@ function ProductsContent() {
                           )}
                           {/* Category badge */}
                           {product.category?.nameHe && (
-                            <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-primary-700 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                            <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                               {product.category.nameHe}
                             </div>
                           )}
                           {/* Variants badge */}
                           {variants > 1 && (
-                            <div className="absolute top-3 left-3 bg-primary-600/90 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                            <div className="absolute top-3 left-3 bg-gray-900/90 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                               {variants} וריאנטים
                             </div>
                           )}
@@ -276,7 +276,7 @@ function ProductsContent() {
                               {price > 0 ? (
                                 <>
                                   <span className="text-xs text-gray-400">החל מ-</span>
-                                  <div className="text-2xl font-black text-primary-700 leading-none">
+                                  <div className="text-2xl font-black text-gray-900 leading-none">
                                     ₪{price.toLocaleString()}
                                   </div>
                                 </>
@@ -301,7 +301,7 @@ function ProductsContent() {
                       <div className="px-4 pb-4 mt-auto">
                         <Link
                           href={`/products/${product.id}`}
-                          className="w-full bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm"
+                          className="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm"
                         >
                           <span>הגדרה והזמנה</span>
                           <ChevronLeft className="w-4 h-4" />

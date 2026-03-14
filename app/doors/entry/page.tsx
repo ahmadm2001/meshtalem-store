@@ -99,7 +99,7 @@ function EntryDoorsContent() {
             </p>
             <button
               onClick={() => { setActiveSubcat('all'); setActiveDoorType('all'); }}
-              className="text-primary-600 hover:text-primary-700 text-sm font-semibold"
+              className="text-gray-900 hover:text-gray-800 text-sm font-semibold"
             >
               הצג את כל הדגמים ←
             </button>

@@ -100,7 +100,7 @@ export default function RegisterPage() {
 
             <p className="text-center text-sm text-gray-500 mt-4">
               יש לך כבר חשבון?{' '}
-              <Link href="/auth/login" className="text-primary-600 hover:underline font-medium">כניסה</Link>
+              <Link href="/auth/login" className="text-gray-900 hover:underline font-medium">כניסה</Link>
             </p>
           </div>
         </div>

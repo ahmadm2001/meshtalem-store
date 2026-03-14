@@ -79,7 +79,7 @@ export default function LoginPage() {
 
             <p className="text-center text-sm text-gray-500 mt-4">
               אין לך חשבון?{' '}
-              <Link href="/auth/register" className="text-primary-600 hover:underline font-medium">
+              <Link href="/auth/register" className="text-gray-900 hover:underline font-medium">
                 הרשמה
               </Link>
             </p>

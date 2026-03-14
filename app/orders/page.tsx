@@ -73,7 +73,7 @@ export default function OrdersPage() {
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                     <p className="text-sm text-gray-500"><Truck className="w-4 h-4 inline ml-1" />{order.shippingCity}</p>
-                    <p className="font-bold text-primary-600">₪{Number(order.totalAmount).toFixed(2)}</p>
+                    <p className="font-bold text-gray-900">₪{Number(order.totalAmount).toFixed(2)}</p>
                   </div>
                 </div>
               );
